@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -7,13 +8,14 @@ import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import { Button } from '@/components/ui/button';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
-import { findSimilarItems } from '@/ai/flows/find-similar-items';
+import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
 import { AlertCircle, Sparkles, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 
-type AnalysisState = AnalyzeClothingImageOutput & { vendorLinks?: string[] };
+type SimilarItem = { itemName: string; vendorLink: string; };
+type AnalysisState = AnalyzeClothingImageOutput & { similarItems?: SimilarItem[] };
 
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -24,7 +26,6 @@ export default function StyleSeerPage() {
 
   const handleImageUpload = async (dataUri: string) => {
     if (!dataUri) {
-      // Image was cleared from ImageUpload component
       handleReset();
       return;
     }
@@ -43,18 +44,18 @@ export default function StyleSeerPage() {
 
         if (clothingAnalysis.clothingItems.length > 0) {
             setCurrentLoadingMessage("Finding similar items online...");
-            const similarItemsSearch = await findSimilarItems({
-                clothingItem: clothingAnalysis.clothingItems[0], // Use first item for simplicity
+            const similarItemsResult = await findSimilarItems({
+                clothingItem: clothingAnalysis.clothingItems[0], 
                 dominantColors: clothingAnalysis.dominantColors,
                 style: clothingAnalysis.style,
             });
-            setAnalysis(prev => ({ ...prev, ...clothingAnalysis, vendorLinks: similarItemsSearch.vendorLinks }));
+            setAnalysis(prev => ({ ...prev, ...clothingAnalysis, similarItems: similarItemsResult.similarItems }));
         } else {
-             setAnalysis(prev => ({ ...prev, ...clothingAnalysis, vendorLinks: [] }));
+             setAnalysis(prev => ({ ...prev, ...clothingAnalysis, similarItems: [] }));
         }
-      } else if (clothingAnalysis) { // AI returned but no items/style/colors
-        setAnalysis({...clothingAnalysis, vendorLinks: []}); // Show that nothing was found
-        setError(null); // Not an error, just no results
+      } else if (clothingAnalysis) { 
+        setAnalysis({...clothingAnalysis, similarItems: []}); 
+        setError(null); 
       }
       else {
         setError("Failed to analyze image. The AI could not process the request.");
@@ -75,9 +76,6 @@ export default function StyleSeerPage() {
     setAnalysis(null);
     setError(null);
     setIsLoading(false);
-    // The ImageUpload component will also need to be reset if it holds its own preview state.
-    // This is handled by passing "" to onImageUpload or re-rendering ImageUpload if key changes.
-    // For now, assume ImageUpload handles its own visual reset when onImageUpload("") is called or props change.
   };
   
   const showInitialHelper = !imageUri && !analysis && !isLoading && !error;
@@ -136,7 +134,7 @@ export default function StyleSeerPage() {
               clothingItems={analysis.clothingItems}
               dominantColors={analysis.dominantColors}
               style={analysis.style}
-              vendorLinks={analysis.vendorLinks}
+              similarItems={analysis.similarItems}
             />
             <div className="mt-10 text-center">
               <Button onClick={handleReset} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">

@@ -1,4 +1,4 @@
-// Implemented Genkit flow for finding similar clothing items from online vendors based on image analysis.
+
 'use server';
 /**
  * @fileOverview AI agent to find similar clothing items from online vendors.
@@ -18,8 +18,13 @@ const FindSimilarItemsInputSchema = z.object({
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
+const SimilarItemSchema = z.object({
+  itemName: z.string().describe('The name or a brief description of the similar clothing item.'),
+  vendorLink: z.string().url().describe('A link to an online vendor selling this or a similar item.'),
+});
+
 const FindSimilarItemsOutputSchema = z.object({
-  vendorLinks: z.array(z.string()).describe('Links to online vendors selling similar items.'),
+  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links.'),
 });
 export type FindSimilarItemsOutput = z.infer<typeof FindSimilarItemsOutputSchema>;
 
@@ -31,13 +36,13 @@ const prompt = ai.definePrompt({
   name: 'findSimilarItemsPrompt',
   input: {schema: FindSimilarItemsInputSchema},
   output: {schema: FindSimilarItemsOutputSchema},
-  prompt: `You are a personal shopping assistant. Given the following clothing item description, find links to online vendors that sell similar items.
+  prompt: `You are a personal shopping assistant. Given the following clothing item description, find similar items from online vendors. For each item, provide its name or a brief description, and a link to an online vendor.
 
 Clothing Item: {{{clothingItem}}}
 Dominant Colors: {{#each dominantColors}}{{{this}}} {{/each}}
 Style: {{{style}}}
 
-Return a JSON array of links to online vendors.
+Return a JSON object containing a list of 'similarItems', where each item has an 'itemName' (a descriptive name for the clothing item) and a 'vendorLink' (a URL to an online store).
 `,
 });
 
@@ -49,6 +54,6 @@ const findSimilarItemsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    return output || { similarItems: [] }; // Ensure an empty array if output is null
   }
 );

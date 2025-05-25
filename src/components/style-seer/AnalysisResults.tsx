@@ -1,14 +1,20 @@
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle } from 'lucide-react';
 import NextImage from 'next/image';
+
+interface SimilarItem {
+  itemName: string;
+  vendorLink: string;
+}
 
 interface AnalysisResultsProps {
   imagePreview: string | null;
   clothingItems?: string[];
   dominantColors?: string[];
   style?: string;
-  vendorLinks?: string[];
+  similarItems?: SimilarItem[];
 }
 
 export default function AnalysisResults({
@@ -16,15 +22,13 @@ export default function AnalysisResults({
   clothingItems,
   dominantColors,
   style,
-  vendorLinks,
+  similarItems,
 }: AnalysisResultsProps) {
-  if (!clothingItems && !dominantColors && !style && (!vendorLinks || vendorLinks.length === 0)) {
-    // If only imagePreview is present but no actual analysis results, don't render this specific component.
-    // The page itself can handle showing just the image if needed.
+  if (!clothingItems && !dominantColors && !style && (!similarItems || similarItems.length === 0)) {
     return null;
   }
   
-  const hasVendorLinks = vendorLinks && vendorLinks.length > 0;
+  const hasSimilarItems = similarItems && similarItems.length > 0;
   const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || (dominantColors && dominantColors.length > 0) || style;
 
   return (
@@ -106,33 +110,36 @@ export default function AnalysisResults({
           </Card>
         )}
 
-        {hasAnyAnalysis && ( // Only show vendor links if some analysis was successful
+        {hasAnyAnalysis && ( 
             <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
                 <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                     <ShoppingBag size={24} className="text-primary" /> Similar Items Online
                 </CardTitle>
-                {!hasVendorLinks && clothingItems && clothingItems.length > 0 && (
-                    <CardDescription>We couldn't find specific online matches for this item at the moment.</CardDescription>
+                {!hasSimilarItems && clothingItems && clothingItems.length > 0 && (
+                    <CardDescription>We couldn't find specific online matches or suggestions for this item at the moment.</CardDescription>
                 )}
-                 {!clothingItems || clothingItems.length === 0 && (
+                 {(!clothingItems || clothingItems.length === 0) && (
                     <CardDescription>Upload an image with clothing to find similar items.</CardDescription>
                  )}
                 </CardHeader>
-                {hasVendorLinks && (
+                {hasSimilarItems && (
                 <CardContent>
-                    <ul className="space-y-3">
-                    {vendorLinks.map((link, index) => (
-                        <li key={index} className="text-sm">
-                        <a
-                            href={link}
+                    <ul className="space-y-4">
+                    {similarItems.map((item, index) => (
+                        <li key={index} className="p-3 border rounded-md shadow-sm bg-card hover:bg-muted/40 transition-colors">
+                          <p className="font-semibold text-md mb-1.5 text-foreground">{item.itemName}</p>
+                          <a
+                            href={item.vendorLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-accent hover:text-accent/80 transition-colors group"
-                        >
-                            <ExternalLink size={18} className="text-accent/70 group-hover:text-accent transition-colors" />
-                            <span className="underline group-hover:no-underline truncate">{new URL(link).hostname.replace('www.','')}</span>
-                        </a>
+                            className="flex items-center gap-1.5 text-sm text-accent hover:text-accent/80 transition-colors group"
+                          >
+                            <ExternalLink size={16} className="text-accent/80 group-hover:text-accent transition-colors" />
+                            <span className="underline group-hover:no-underline truncate">
+                              View on {new URL(item.vendorLink).hostname.replace('www.','')}
+                            </span>
+                          </a>
                         </li>
                     ))}
                     </ul>
