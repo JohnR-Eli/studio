@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle, Ticket } from 'lucide-react'; // Added Ticket icon
 import NextImage from 'next/image';
 
 interface SimilarItem {
@@ -14,6 +14,7 @@ interface AnalysisResultsProps {
   clothingItems?: string[];
   dominantColors?: string[];
   style?: string;
+  brand?: string; // Added brand prop
   similarItems?: SimilarItem[];
 }
 
@@ -22,14 +23,15 @@ export default function AnalysisResults({
   clothingItems,
   dominantColors,
   style,
+  brand, // Destructure brand
   similarItems,
 }: AnalysisResultsProps) {
-  if (!clothingItems && !dominantColors && !style && (!similarItems || similarItems.length === 0)) {
+  if (!clothingItems && !dominantColors && !style && !brand && (!similarItems || similarItems.length === 0)) {
     return null;
   }
   
   const hasSimilarItems = similarItems && similarItems.length > 0;
-  const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || (dominantColors && dominantColors.length > 0) || style;
+  const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || (dominantColors && dominantColors.length > 0) || style || brand;
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
@@ -73,6 +75,19 @@ export default function AnalysisResults({
                   <Badge key={index} variant="secondary" className="text-sm px-3 py-1.5 shadow-sm">{item}</Badge>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {brand && (
+          <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Ticket size={24} className="text-primary" /> Brand
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-md font-medium">{brand}</p>
             </CardContent>
           </Card>
         )}

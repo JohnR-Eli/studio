@@ -1,4 +1,5 @@
-// 'use server';
+
+'use server';
 
 /**
  * @fileOverview An AI agent to analyze clothing images.
@@ -7,8 +8,6 @@
  * - AnalyzeClothingImageInput - The input type for the analyzeClothingImage function.
  * - AnalyzeClothingImageOutput - The return type for the analyzeClothingImage function.
  */
-
-'use server';
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
@@ -26,6 +25,7 @@ const AnalyzeClothingImageOutputSchema = z.object({
   clothingItems: z.array(z.string()).describe('List of clothing items detected in the image.'),
   dominantColors: z.array(z.string()).describe('List of dominant colors detected in the clothing.'),
   style: z.string().describe('The overall style of the clothing (e.g., casual, formal, vintage).'),
+  brand: z.string().optional().describe('The brand of the clothing, if identifiable from the image or item characteristics.'),
 });
 export type AnalyzeClothingImageOutput = z.infer<typeof AnalyzeClothingImageOutputSchema>;
 
@@ -42,6 +42,7 @@ const prompt = ai.definePrompt({
 - A list of the clothing items present in the image.
 - A list of the dominant colors in the clothing.
 - The overall style of the clothing (e.g., casual, formal, vintage).
+- The brand of the clothing, if you can identify it from the visual details or typical style of the item. If no brand is clear, omit this field or set it to null.
 
 Image: {{media url=photoDataUri}}`,
 });

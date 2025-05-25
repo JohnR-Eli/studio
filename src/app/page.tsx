@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 
 type SimilarItem = { itemName: string; vendorLink: string; };
+// Include 'brand' from AnalyzeClothingImageOutput in AnalysisState
 type AnalysisState = AnalyzeClothingImageOutput & { similarItems?: SimilarItem[] };
 
 export default function StyleSeerPage() {
@@ -36,16 +37,18 @@ export default function StyleSeerPage() {
     setIsLoading(true);
 
     try {
-      setCurrentLoadingMessage("Analyzing clothing, colors, and style...");
+      setCurrentLoadingMessage("Analyzing clothing, colors, style, and brand...");
       const clothingAnalysis = await analyzeClothingImage({ photoDataUri: dataUri });
 
-      if (clothingAnalysis && (clothingAnalysis.clothingItems.length > 0 || clothingAnalysis.dominantColors.length > 0 || clothingAnalysis.style)) {
+      if (clothingAnalysis && (clothingAnalysis.clothingItems.length > 0 || clothingAnalysis.dominantColors.length > 0 || clothingAnalysis.style || clothingAnalysis.brand)) {
         setAnalysis(clothingAnalysis); 
 
         if (clothingAnalysis.clothingItems.length > 0) {
             setCurrentLoadingMessage("Finding similar items online...");
             const similarItemsResult = await findSimilarItems({
+                photoDataUri: dataUri, // Pass the original image URI
                 clothingItem: clothingAnalysis.clothingItems[0], 
+                brand: clothingAnalysis.brand, // Pass the identified brand
                 dominantColors: clothingAnalysis.dominantColors,
                 style: clothingAnalysis.style,
             });
@@ -104,7 +107,7 @@ export default function StyleSeerPage() {
               <CardContent className="p-0">
                 <ol className="list-decimal list-inside text-muted-foreground space-y-1.5 text-sm">
                     <li>Drag & drop or click to upload an image featuring clothing.</li>
-                    <li>Our AI meticulously analyzes items, colors, and style.</li>
+                    <li>Our AI meticulously analyzes items, colors, style, and brand.</li>
                     <li>Discover the results and get links to similar fashion items online.</li>
                 </ol>
               </CardContent>
@@ -134,6 +137,7 @@ export default function StyleSeerPage() {
               clothingItems={analysis.clothingItems}
               dominantColors={analysis.dominantColors}
               style={analysis.style}
+              brand={analysis.brand} {/* Pass brand to results */}
               similarItems={analysis.similarItems}
             />
             <div className="mt-10 text-center">
