@@ -32,7 +32,7 @@ export default function StyleSeerPage() {
     }
 
     setImageUri(dataUri);
-    setAnalysis(null); 
+    setAnalysis(null);
     setError(null);
     setIsLoading(true);
 
@@ -41,13 +41,13 @@ export default function StyleSeerPage() {
       const clothingAnalysis = await analyzeClothingImage({ photoDataUri: dataUri });
 
       if (clothingAnalysis && (clothingAnalysis.clothingItems.length > 0 || clothingAnalysis.dominantColors.length > 0 || clothingAnalysis.style || clothingAnalysis.brand)) {
-        setAnalysis(clothingAnalysis); 
+        setAnalysis(clothingAnalysis);
 
         if (clothingAnalysis.clothingItems.length > 0) {
             setCurrentLoadingMessage("Finding similar items online...");
             const similarItemsResult = await findSimilarItems({
                 photoDataUri: dataUri, // Pass the original image URI
-                clothingItem: clothingAnalysis.clothingItems[0], 
+                clothingItem: clothingAnalysis.clothingItems[0],
                 brand: clothingAnalysis.brand, // Pass the identified brand
                 dominantColors: clothingAnalysis.dominantColors,
                 style: clothingAnalysis.style,
@@ -56,9 +56,9 @@ export default function StyleSeerPage() {
         } else {
              setAnalysis(prev => ({ ...prev, ...clothingAnalysis, similarItems: [] }));
         }
-      } else if (clothingAnalysis) { 
-        setAnalysis({...clothingAnalysis, similarItems: []}); 
-        setError(null); 
+      } else if (clothingAnalysis) {
+        setAnalysis({...clothingAnalysis, similarItems: []});
+        setError(null);
       }
       else {
         setError("Failed to analyze image. The AI could not process the request.");
