@@ -15,7 +15,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 
 type SimilarItem = { itemName: string; vendorLink: string; };
-// Include 'brand' from AnalyzeClothingImageOutput in AnalysisState
 type AnalysisState = AnalyzeClothingImageOutput & { similarItems?: SimilarItem[] };
 
 export default function StyleSeerPage() {
@@ -35,39 +34,57 @@ export default function StyleSeerPage() {
     setAnalysis(null);
     setError(null);
     setIsLoading(true);
+    setCurrentLoadingMessage("Analyzing clothing, colors, style, and brand...");
 
     try {
-      setCurrentLoadingMessage("Analyzing clothing, colors, style, and brand...");
-      const clothingAnalysis = await analyzeClothingImage({ photoDataUri: dataUri });
+      const clothingAnalysisResult: AnalyzeClothingImageOutput | null = await analyzeClothingImage({ photoDataUri: dataUri });
 
-      if (clothingAnalysis && (clothingAnalysis.clothingItems.length > 0 || clothingAnalysis.dominantColors.length > 0 || clothingAnalysis.style || clothingAnalysis.brand)) {
-        setAnalysis(clothingAnalysis);
+      if (clothingAnalysisResult) {
+        // Initialize the final state with potentially empty similarItems
+        let finalAnalysisState: AnalysisState = { 
+          ...clothingAnalysisResult, 
+          similarItems: [] 
+        };
 
-        if (clothingAnalysis.clothingItems.length > 0) {
-            setCurrentLoadingMessage("Finding similar items online...");
-            const similarItemsResult = await findSimilarItems({
-                photoDataUri: dataUri, // Pass the original image URI
-                clothingItem: clothingAnalysis.clothingItems[0],
-                brand: clothingAnalysis.brand, // Pass the identified brand
-                dominantColors: clothingAnalysis.dominantColors,
-                style: clothingAnalysis.style,
-            });
-            setAnalysis(prev => ({ ...prev, ...clothingAnalysis, similarItems: similarItemsResult.similarItems }));
-        } else {
-             setAnalysis(prev => ({ ...prev, ...clothingAnalysis, similarItems: [] }));
+        // If primary analysis yielded clothing items, try to find similar ones
+        if (clothingAnalysisResult.clothingItems && clothingAnalysisResult.clothingItems.length > 0) {
+          setCurrentLoadingMessage("Finding similar items online...");
+          const similarItemsData: FindSimilarItemsOutput = await findSimilarItems({
+            photoDataUri: dataUri,
+            clothingItem: clothingAnalysisResult.clothingItems[0], // Assuming at least one item
+            brand: clothingAnalysisResult.brand,
+            dominantColors: clothingAnalysisResult.dominantColors,
+            style: clothingAnalysisResult.style,
+          });
+          finalAnalysisState.similarItems = similarItemsData.similarItems || [];
         }
-      } else if (clothingAnalysis) {
-        setAnalysis({...clothingAnalysis, similarItems: []});
-        setError(null);
-      }
-      else {
+        
+        // Check if the initial AI call returned any meaningful data to display
+        // This allows UI to differentiate "no results found" from an error
+        const hasMeaningfulAnalysis = 
+          (clothingAnalysisResult.clothingItems && clothingAnalysisResult.clothingItems.length > 0) ||
+          (clothingAnalysisResult.dominantColors && clothingAnalysisResult.dominantColors.length > 0) ||
+          clothingAnalysisResult.style || 
+          clothingAnalysisResult.brand;
+
+        if (hasMeaningfulAnalysis) {
+          setAnalysis(finalAnalysisState);
+          setError(null); // Clear previous errors if we have some results
+        } else {
+          // The AI call was successful but returned no specific details (e.g. image didn't have clear clothing)
+          setAnalysis(finalAnalysisState); // Show the (empty) results so UI can adapt
+          setError(null); // Not an error, but no specific findings
+        }
+
+      } else {
+        // AI call for clothingAnalysis failed or returned null
         setError("Failed to analyze image. The AI could not process the request.");
         setAnalysis(null);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Analysis Error:", e);
-      const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
-      setError(`An error occurred during analysis: ${errorMessage}. Please try again.`);
+      const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during image processing.";
+      setError(`An error occurred: ${errorMessage}. Please try again.`);
       setAnalysis(null);
     } finally {
       setIsLoading(false);
@@ -79,6 +96,7 @@ export default function StyleSeerPage() {
     setAnalysis(null);
     setError(null);
     setIsLoading(false);
+    setCurrentLoadingMessage("Analyzing image...");
   };
   
   const showInitialHelper = !imageUri && !analysis && !isLoading && !error;
@@ -137,7 +155,7 @@ export default function StyleSeerPage() {
               clothingItems={analysis.clothingItems}
               dominantColors={analysis.dominantColors}
               style={analysis.style}
-              brand={analysis.brand} {/* Pass brand to results */}
+              brand={analysis.brand}
               similarItems={analysis.similarItems}
             />
             <div className="mt-10 text-center">
