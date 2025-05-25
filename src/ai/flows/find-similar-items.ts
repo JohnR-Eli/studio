@@ -20,7 +20,7 @@ export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
 const SimilarItemSchema = z.object({
   itemName: z.string().describe('The name or a brief description of the similar clothing item.'),
-  vendorLink: z.string().url().describe('A link to an online vendor selling this or a similar item.'),
+  vendorLink: z.string().describe('A link to an online vendor selling this or a similar item. This must be a valid URL.'),
 });
 
 const FindSimilarItemsOutputSchema = z.object({
@@ -42,7 +42,7 @@ Clothing Item: {{{clothingItem}}}
 Dominant Colors: {{#each dominantColors}}{{{this}}} {{/each}}
 Style: {{{style}}}
 
-Return a JSON object containing a list of 'similarItems', where each item has an 'itemName' (a descriptive name for the clothing item) and a 'vendorLink' (a URL to an online store).
+Return a JSON object containing a list of 'similarItems', where each item has an 'itemName' (a descriptive name for the clothing item) and a 'vendorLink' (a URL to an online store). Ensure the vendorLink is a complete and valid URL.
 `,
 });
 
@@ -57,3 +57,4 @@ const findSimilarItemsFlow = ai.defineFlow(
     return output || { similarItems: [] }; // Ensure an empty array if output is null
   }
 );
+
