@@ -45,7 +45,6 @@ export async function findSimilarItems(input: FindSimilarItemsInput): Promise<Fi
 const similarItemsTextPrompt = ai.definePrompt({
   name: 'similarItemsTextPrompt',
   input: {schema: FindSimilarItemsInputSchema},
-  // Output schema for this prompt does not include itemImageDataUri, as that's handled separately
   output: {schema: z.object({
     similarItems: z.array(z.object({
         itemTitle: SimilarItemSchema.shape.itemTitle,
@@ -54,7 +53,7 @@ const similarItemsTextPrompt = ai.definePrompt({
     })).describe('List of similar clothing items with their details and vendor links. Aim for 3-5 items.'),
   })},
   prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that closely match a reference image.
-Analyze the provided reference image and the clothing description. Your goal is to find similar items from online vendors.
+Analyze the provided reference image and the clothing description. Your goal is to find 3 to 5 similar items from online vendors.
 Prioritize items that are visually very similar to the one in the reference image.
 
 Reference Image: {{media url=photoDataUri}}
@@ -93,7 +92,12 @@ const findSimilarItemsFlow = ai.defineFlow(
     for (const item of textOutput.similarItems) {
       let itemImageDataUri: string | undefined = undefined;
       try {
-        const imageGenPrompt = `Generate a clear, well-lit studio photograph of a single clothing item that matches this description: "${item.itemTitle} - ${item.itemDescription}". The image should focus solely on the item itself against a neutral background. Do not include any text, logos, or people in the image.`;
+        // Refined prompt for image generation
+        const imageGenPrompt = `Generate a high-quality, clear, well-lit studio photograph of a single clothing item that precisely matches this description: "${item.itemTitle} - ${item.itemDescription}". 
+The image should focus solely on the item itself, presented as it would typically be on an e-commerce product page (e.g., flat lay, on a mannequin if appropriate for the item type, or neatly folded).
+The background should be neutral and non-distracting (e.g., white, light gray, or very subtle gradient).
+Do not include any text, logos, brand names, people, or other objects in the image. The item should be the sole focus.
+Ensure the style of the photograph is clean and professional, suitable for an online store.`;
         
         const { media } = await ai.generate({
           model: 'googleai/gemini-2.0-flash-exp', // Explicitly use the image generation model
