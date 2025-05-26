@@ -43,10 +43,10 @@ export async function findSimilarItems(input: FindSimilarItemsInput): Promise<Fi
 const similarItemsTextPrompt = ai.definePrompt({
   name: 'similarItemsTextPrompt',
   input: {schema: FindSimilarItemsInputSchema},
-  output: {schema: FindSimilarItemsOutputSchema }, // Output schema directly for the prompt
+  output: {schema: FindSimilarItemsOutputSchema },
   prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that closely match a reference image.
 Analyze the provided reference image and the clothing description. Your goal is to find 3 to 5 similar items from online vendors.
-Prioritize items that are visually very similar to the one in the reference image.
+Prioritize items that are visually very similar to the one in the reference image. When selecting items, try to choose products that are likely to be currently in stock and available for purchase (e.g., prefer items from current collections, and be cautious with items that appear to be on clearance or from very old listings, as they are more likely to be out of stock).
 
 Reference Image: {{media url=photoDataUri}}
 
@@ -60,7 +60,7 @@ If a brand is provided or discernible from the image, try to find items from tha
 For each similar item, provide:
 1.  'itemTitle': A concise title for the clothing item, including its brand if identifiable. This will be displayed as the main link text.
 2.  'itemDescription': A more detailed description (2-3 sentences) highlighting key features, materials, or why it's a strong match to the original. This will be shown as a preview on hover.
-3.  'vendorLink': A direct URL to the product page on an online vendor site if a specific match is found. If not, a URL to a search results page on the vendor's site for the item (e.g., "https://vendor.com/search?q=item+description") or a relevant category page. Ensure this is a valid URL.
+3.  'vendorLink': A direct URL to the product page for an item you believe to be currently available on an online vendor site if a specific match is found. If an exact product page for an in-stock item isn't clear, provide a URL to a search results page on the vendor's site for the item (e.g., "https://vendor.com/search?q=item+description") or a relevant category page that is likely to contain similar, available items. Ensure this is a valid URL.
 
 Return a JSON object containing a list of 'similarItems'. Ensure you provide at least 3, and up to 5, distinct similar items if suitable matches can be found. If you truly cannot find at least 3 items, return as many as you can find. If no items are found, return an empty list for 'similarItems'.`,
 });
@@ -72,13 +72,12 @@ const findSimilarItemsFlow = ai.defineFlow(
     outputSchema: FindSimilarItemsOutputSchema,
   },
   async (input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> => {
-    // Step 1: Get textual descriptions and links for similar items
     const {output} = await similarItemsTextPrompt(input);
 
     if (!output || !output.similarItems || output.similarItems.length === 0) {
       return { similarItems: [] };
     }
     
-    return output; // Output directly matches FindSimilarItemsOutputSchema
+    return output;
   }
 );
