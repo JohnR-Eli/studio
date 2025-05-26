@@ -1,8 +1,7 @@
 
 'use server';
 /**
- * @fileOverview AI agent to find similar clothing items from online vendors,
- * including generating representative images for each item.
+ * @fileOverview AI agent to find similar clothing items from online vendors.
  *
  * - findSimilarItems - A function that handles the process of finding similar items.
  * - FindSimilarItemsInput - The input type for the findSimilarItems function.
@@ -28,13 +27,12 @@ export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 const SimilarItemSchema = z.object({
   itemTitle: z.string().describe('A concise title for the similar clothing item, including its brand if identifiable. This will be the main display text for the item.'),
   itemDescription: z.string().describe('A detailed description (2-3 sentences) of the similar clothing item, highlighting key features, materials, or why it is a good match. This will be shown as a preview on hover.'),
-  vendorLink: z.string().describe('A link to an online vendor selling this or a similar item. This must be a valid URL.'),
-  itemImageDataUri: z.string().optional().describe("A data URI of a newly generated image visually representing this similar item. Expected format: 'data:image/png;base64,<encoded_data>'. This field may be omitted if image generation fails or is not possible."),
+  vendorLink: z.string().describe('A direct URL to the product page on an online vendor site if a specific match is found. If not, a URL to a search results page on the vendor\'s site for the item (e.g., "https://vendor.com/search?q=item+description") or a relevant category page. This must be a valid URL.'),
 });
 export type SimilarItem = z.infer<typeof SimilarItemSchema>;
 
 const FindSimilarItemsOutputSchema = z.object({
-  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details, vendor links, and generated image data URIs. Aim for 3-5 items.'),
+  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links. Aim for 3-5 items.'),
 });
 export type FindSimilarItemsOutput = z.infer<typeof FindSimilarItemsOutputSchema>;
 
@@ -45,13 +43,7 @@ export async function findSimilarItems(input: FindSimilarItemsInput): Promise<Fi
 const similarItemsTextPrompt = ai.definePrompt({
   name: 'similarItemsTextPrompt',
   input: {schema: FindSimilarItemsInputSchema},
-  output: {schema: z.object({
-    similarItems: z.array(z.object({
-        itemTitle: SimilarItemSchema.shape.itemTitle,
-        itemDescription: SimilarItemSchema.shape.itemDescription,
-        vendorLink: SimilarItemSchema.shape.vendorLink,
-    })).describe('List of similar clothing items with their details and vendor links. Aim for 3-5 items.'),
-  })},
+  output: {schema: FindSimilarItemsOutputSchema }, // Output schema directly for the prompt
   prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that closely match a reference image.
 Analyze the provided reference image and the clothing description. Your goal is to find 3 to 5 similar items from online vendors.
 Prioritize items that are visually very similar to the one in the reference image.
@@ -68,9 +60,9 @@ If a brand is provided or discernible from the image, try to find items from tha
 For each similar item, provide:
 1.  'itemTitle': A concise title for the clothing item, including its brand if identifiable. This will be displayed as the main link text.
 2.  'itemDescription': A more detailed description (2-3 sentences) highlighting key features, materials, or why it's a strong match to the original. This will be shown as a preview on hover.
-3.  'vendorLink': A valid URL to an online vendor selling this or a similar item.
+3.  'vendorLink': A direct URL to the product page on an online vendor site if a specific match is found. If not, a URL to a search results page on the vendor's site for the item (e.g., "https://vendor.com/search?q=item+description") or a relevant category page. Ensure this is a valid URL.
 
-Return a JSON object containing a list of 'similarItems'. Ensure you provide at least 3, and up to 5, distinct similar items if suitable matches can be found. If you truly cannot find at least 3 items, return as many as you can find. If no items are found, return an empty list for 'similarItems'. Ensure the vendorLink is a complete and valid URL.`,
+Return a JSON object containing a list of 'similarItems'. Ensure you provide at least 3, and up to 5, distinct similar items if suitable matches can be found. If you truly cannot find at least 3 items, return as many as you can find. If no items are found, return an empty list for 'similarItems'.`,
 });
 
 const findSimilarItemsFlow = ai.defineFlow(
@@ -80,47 +72,13 @@ const findSimilarItemsFlow = ai.defineFlow(
     outputSchema: FindSimilarItemsOutputSchema,
   },
   async (input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> => {
-    // Step 1: Get textual descriptions of similar items
-    const {output: textOutput} = await similarItemsTextPrompt(input);
+    // Step 1: Get textual descriptions and links for similar items
+    const {output} = await similarItemsTextPrompt(input);
 
-    if (!textOutput || !textOutput.similarItems || textOutput.similarItems.length === 0) {
+    if (!output || !output.similarItems || output.similarItems.length === 0) {
       return { similarItems: [] };
     }
-
-    // Step 2: For each item, generate an image
-    const enrichedItems: SimilarItem[] = [];
-    for (const item of textOutput.similarItems) {
-      let itemImageDataUri: string | undefined = undefined;
-      try {
-        // Refined prompt for image generation
-        const imageGenPrompt = `Generate a high-quality, clear, well-lit studio photograph of a single clothing item that precisely matches this description: "${item.itemTitle} - ${item.itemDescription}". 
-The image should focus solely on the item itself, presented as it would typically be on an e-commerce product page (e.g., flat lay, on a mannequin if appropriate for the item type, or neatly folded).
-The background should be neutral and non-distracting (e.g., white, light gray, or very subtle gradient).
-Do not include any text, logos, brand names, people, or other objects in the image. The item should be the sole focus.
-Ensure the style of the photograph is clean and professional, suitable for an online store.`;
-        
-        const { media } = await ai.generate({
-          model: 'googleai/gemini-2.0-flash-exp', // Explicitly use the image generation model
-          prompt: imageGenPrompt,
-          config: {
-            responseModalities: ['TEXT', 'IMAGE'], // Must provide both
-          },
-        });
-        
-        if (media && media.url) {
-          itemImageDataUri = media.url;
-        }
-      } catch (e) {
-        console.error(`Failed to generate image for item "${item.itemTitle}":`, e);
-        // Image generation failed, itemImageDataUri will remain undefined
-      }
-      
-      enrichedItems.push({
-        ...item,
-        itemImageDataUri,
-      });
-    }
-
-    return { similarItems: enrichedItems };
+    
+    return output; // Output directly matches FindSimilarItemsOutputSchema
   }
 );

@@ -8,14 +8,14 @@ import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import { Button } from '@/components/ui/button';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
-import { findSimilarItems, FindSimilarItemsOutput, SimilarItem as GenkitSimilarItem } from '@/ai/flows/find-similar-items'; // Updated import
+import { findSimilarItems, FindSimilarItemsOutput, SimilarItem as GenkitSimilarItem } from '@/ai/flows/find-similar-items';
 import { AlertCircle, Sparkles, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 
 // Use the exported SimilarItem type from the flow
-type SimilarItem = GenkitSimilarItem;
+type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>; // itemImageDataUri is removed
 
 type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
   similarItems?: SimilarItem[];
@@ -66,15 +66,20 @@ export default function StyleSeerPage() {
           clothingAnalysisResult.brand;
 
         if (hasMeaningfulAnalysis) {
-          setCurrentLoadingMessage("Finding similar items and generating visual previews (this may take some time)...");
+          setCurrentLoadingMessage("Finding similar items..."); // Updated loading message
           const similarItemsResult: FindSimilarItemsOutput = await findSimilarItems({
-            photoDataUri: dataUri, // Pass original image for context
+            photoDataUri: dataUri,
             clothingItem: clothingAnalysisResult.clothingItems?.[0] || "clothing item",
             brand: clothingAnalysisResult.brand,
             dominantColors: clothingAnalysisResult.dominantColors || [],
             style: clothingAnalysisResult.style || "any style",
           });
-          finalAnalysisState.similarItems = similarItemsResult.similarItems || [];
+          // Ensure similarItems are mapped correctly if the flow returns GenkitSimilarItem
+          finalAnalysisState.similarItems = (similarItemsResult.similarItems || []).map(item => ({
+            itemTitle: item.itemTitle,
+            itemDescription: item.itemDescription,
+            vendorLink: item.vendorLink,
+          }));
         }
         setAnalysis(finalAnalysisState);
         setError(null);
@@ -111,7 +116,7 @@ export default function StyleSeerPage() {
             Unlock Your Fashion Insights
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
-            Upload an image to instantly analyze clothing items, dominant colors, and overall style. We'll even help you find similar pieces online, complete with visual previews!
+            Upload an image to instantly analyze clothing items, dominant colors, and overall style. We'll even help you find similar pieces online!
           </p>
         </div>
 
@@ -127,7 +132,7 @@ export default function StyleSeerPage() {
                 <ol className="list-decimal list-inside text-muted-foreground space-y-1.5 text-sm">
                     <li>Drag & drop or click to upload an image featuring clothing.</li>
                     <li>Our AI meticulously analyzes items, colors, style, and brand.</li>
-                    <li>Discover the results and get links to similar fashion items online, with image previews on hover.</li>
+                    <li>Discover the results and get links to similar fashion items online. Hover for a quick description.</li>
                 </ol>
               </CardContent>
             </Card>
