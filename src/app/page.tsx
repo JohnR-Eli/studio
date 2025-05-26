@@ -8,13 +8,14 @@ import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import { Button } from '@/components/ui/button';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
-import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
+import { findSimilarItems, FindSimilarItemsOutput, SimilarItem as GenkitSimilarItem } from '@/ai/flows/find-similar-items'; // Updated import
 import { AlertCircle, Sparkles, RotateCcw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 
-type SimilarItem = { itemTitle: string; itemDescription: string; vendorLink: string; };
+// Use the exported SimilarItem type from the flow
+type SimilarItem = GenkitSimilarItem;
 
 type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
   similarItems?: SimilarItem[];
@@ -65,9 +66,9 @@ export default function StyleSeerPage() {
           clothingAnalysisResult.brand;
 
         if (hasMeaningfulAnalysis) {
-          setCurrentLoadingMessage("Finding similar items online (this may take a moment)...");
+          setCurrentLoadingMessage("Finding similar items and generating visual previews (this may take some time)...");
           const similarItemsResult: FindSimilarItemsOutput = await findSimilarItems({
-            photoDataUri: dataUri,
+            photoDataUri: dataUri, // Pass original image for context
             clothingItem: clothingAnalysisResult.clothingItems?.[0] || "clothing item",
             brand: clothingAnalysisResult.brand,
             dominantColors: clothingAnalysisResult.dominantColors || [],
@@ -84,7 +85,7 @@ export default function StyleSeerPage() {
     } catch (e: any) {
       console.error("Analysis Error:", e);
       const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during image processing.";
-      setError(`An error occurred: ${errorMessage}. Please try again.`);
+      setError(`An error occurred: ${errorMessage}. Please try again or use a different image.`);
       setAnalysis(null);
     } finally {
       setIsLoading(false);
@@ -110,7 +111,7 @@ export default function StyleSeerPage() {
             Unlock Your Fashion Insights
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
-            Upload an image to instantly analyze clothing items, dominant colors, and overall style. We'll even help you find similar pieces online!
+            Upload an image to instantly analyze clothing items, dominant colors, and overall style. We'll even help you find similar pieces online, complete with visual previews!
           </p>
         </div>
 
@@ -126,7 +127,7 @@ export default function StyleSeerPage() {
                 <ol className="list-decimal list-inside text-muted-foreground space-y-1.5 text-sm">
                     <li>Drag & drop or click to upload an image featuring clothing.</li>
                     <li>Our AI meticulously analyzes items, colors, style, and brand.</li>
-                    <li>Discover the results and get links to similar fashion items online.</li>
+                    <li>Discover the results and get links to similar fashion items online, with image previews on hover.</li>
                 </ol>
               </CardContent>
             </Card>

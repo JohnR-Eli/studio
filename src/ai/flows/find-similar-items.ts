@@ -1,7 +1,8 @@
 
 'use server';
 /**
- * @fileOverview AI agent to find similar clothing items from online vendors.
+ * @fileOverview AI agent to find similar clothing items from online vendors,
+ * including generating representative images for each item.
  *
  * - findSimilarItems - A function that handles the process of finding similar items.
  * - FindSimilarItemsInput - The input type for the findSimilarItems function.
@@ -28,10 +29,12 @@ const SimilarItemSchema = z.object({
   itemTitle: z.string().describe('A concise title for the similar clothing item, including its brand if identifiable. This will be the main display text for the item.'),
   itemDescription: z.string().describe('A detailed description (2-3 sentences) of the similar clothing item, highlighting key features, materials, or why it is a good match. This will be shown as a preview on hover.'),
   vendorLink: z.string().describe('A link to an online vendor selling this or a similar item. This must be a valid URL.'),
+  itemImageDataUri: z.string().optional().describe("A data URI of a newly generated image visually representing this similar item. Expected format: 'data:image/png;base64,<encoded_data>'. This field may be omitted if image generation fails or is not possible."),
 });
+export type SimilarItem = z.infer<typeof SimilarItemSchema>;
 
 const FindSimilarItemsOutputSchema = z.object({
-  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links. Aim for 3-5 items.'),
+  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details, vendor links, and generated image data URIs. Aim for 3-5 items.'),
 });
 export type FindSimilarItemsOutput = z.infer<typeof FindSimilarItemsOutputSchema>;
 
@@ -39,10 +42,17 @@ export async function findSimilarItems(input: FindSimilarItemsInput): Promise<Fi
   return findSimilarItemsFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'findSimilarItemsPrompt',
+const similarItemsTextPrompt = ai.definePrompt({
+  name: 'similarItemsTextPrompt',
   input: {schema: FindSimilarItemsInputSchema},
-  output: {schema: FindSimilarItemsOutputSchema},
+  // Output schema for this prompt does not include itemImageDataUri, as that's handled separately
+  output: {schema: z.object({
+    similarItems: z.array(z.object({
+        itemTitle: SimilarItemSchema.shape.itemTitle,
+        itemDescription: SimilarItemSchema.shape.itemDescription,
+        vendorLink: SimilarItemSchema.shape.vendorLink,
+    })).describe('List of similar clothing items with their details and vendor links. Aim for 3-5 items.'),
+  })},
   prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that closely match a reference image.
 Analyze the provided reference image and the clothing description. Your goal is to find similar items from online vendors.
 Prioritize items that are visually very similar to the one in the reference image.
@@ -70,8 +80,43 @@ const findSimilarItemsFlow = ai.defineFlow(
     inputSchema: FindSimilarItemsInputSchema,
     outputSchema: FindSimilarItemsOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output || { similarItems: [] }; // Ensure an empty array if output is null or undefined
+  async (input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> => {
+    // Step 1: Get textual descriptions of similar items
+    const {output: textOutput} = await similarItemsTextPrompt(input);
+
+    if (!textOutput || !textOutput.similarItems || textOutput.similarItems.length === 0) {
+      return { similarItems: [] };
+    }
+
+    // Step 2: For each item, generate an image
+    const enrichedItems: SimilarItem[] = [];
+    for (const item of textOutput.similarItems) {
+      let itemImageDataUri: string | undefined = undefined;
+      try {
+        const imageGenPrompt = `Generate a clear, well-lit studio photograph of a single clothing item that matches this description: "${item.itemTitle} - ${item.itemDescription}". The image should focus solely on the item itself against a neutral background. Do not include any text, logos, or people in the image.`;
+        
+        const { media } = await ai.generate({
+          model: 'googleai/gemini-2.0-flash-exp', // Explicitly use the image generation model
+          prompt: imageGenPrompt,
+          config: {
+            responseModalities: ['TEXT', 'IMAGE'], // Must provide both
+          },
+        });
+        
+        if (media && media.url) {
+          itemImageDataUri = media.url;
+        }
+      } catch (e) {
+        console.error(`Failed to generate image for item "${item.itemTitle}":`, e);
+        // Image generation failed, itemImageDataUri will remain undefined
+      }
+      
+      enrichedItems.push({
+        ...item,
+        itemImageDataUri,
+      });
+    }
+
+    return { similarItems: enrichedItems };
   }
 );
