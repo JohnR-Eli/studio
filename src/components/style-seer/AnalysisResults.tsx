@@ -1,11 +1,14 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle, Ticket } from 'lucide-react'; // Added Ticket icon
+import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle, Ticket } from 'lucide-react';
 import NextImage from 'next/image';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface SimilarItem {
-  itemName: string;
+  itemTitle: string;
+  itemDescription: string;
   vendorLink: string;
 }
 
@@ -14,7 +17,7 @@ interface AnalysisResultsProps {
   clothingItems?: string[];
   dominantColors?: string[];
   style?: string;
-  brand?: string; // Added brand prop
+  brand?: string;
   similarItems?: SimilarItem[];
 }
 
@@ -23,7 +26,7 @@ export default function AnalysisResults({
   clothingItems,
   dominantColors,
   style,
-  brand, // Destructure brand
+  brand,
   similarItems,
 }: AnalysisResultsProps) {
   if (!clothingItems && !dominantColors && !style && !brand && (!similarItems || similarItems.length === 0)) {
@@ -140,24 +143,35 @@ export default function AnalysisResults({
                 </CardHeader>
                 {hasSimilarItems && (
                 <CardContent>
+                  <TooltipProvider delayDuration={100}>
                     <ul className="space-y-4">
                     {similarItems.map((item, index) => (
-                        <li key={index} className="p-3 border rounded-md shadow-sm bg-card hover:bg-muted/40 transition-colors">
-                          <p className="font-semibold text-md mb-1.5 text-foreground">{item.itemName}</p>
-                          <a
-                            href={item.vendorLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-sm text-accent hover:text-accent/80 transition-colors group"
-                          >
-                            <ExternalLink size={16} className="text-accent/80 group-hover:text-accent transition-colors" />
-                            <span className="underline group-hover:no-underline truncate">
-                              View on {new URL(item.vendorLink).hostname.replace('www.','')}
-                            </span>
-                          </a>
-                        </li>
+                      <li key={index} className="p-3 border rounded-md shadow-sm bg-card hover:bg-muted/40 transition-colors">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={item.vendorLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block group"
+                            >
+                              <p className="font-semibold text-md mb-1.5 text-foreground group-hover:text-accent transition-colors">{item.itemTitle}</p>
+                              <div className="flex items-center gap-1.5 text-sm text-accent/80 group-hover:text-accent transition-colors">
+                                <ExternalLink size={16} />
+                                <span className="underline group-hover:no-underline truncate">
+                                  View on {new URL(item.vendorLink).hostname.replace('www.','')}
+                                </span>
+                              </div>
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="start" className="max-w-xs bg-popover text-popover-foreground p-3 rounded-md shadow-lg border">
+                            <p className="text-sm">{item.itemDescription}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </li>
                     ))}
                     </ul>
+                  </TooltipProvider>
                 </CardContent>
                 )}
             </Card>

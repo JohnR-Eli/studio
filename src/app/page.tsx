@@ -14,9 +14,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 
-type SimilarItem = { itemName: string; vendorLink: string; };
-// Ensure AnalysisState correctly reflects that properties from AnalyzeClothingImageOutput might not yet be present
-// or could be partially built, and similarItems is optional.
+type SimilarItem = { itemTitle: string; itemDescription: string; vendorLink: string; };
+
 type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
   similarItems?: SimilarItem[];
 };
@@ -31,7 +30,6 @@ export default function StyleSeerPage() {
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
-      // If dataUri is empty, it means the image was cleared in ImageUpload
       setImageUri(null);
       setAnalysis(null);
       setError(null);
@@ -41,25 +39,23 @@ export default function StyleSeerPage() {
     }
 
     setImageUri(dataUri);
-    setAnalysis(null); // Clear previous analysis
+    setAnalysis(null);
     setError(null);
     setIsLoading(true);
     setCurrentLoadingMessage("Analyzing clothing, colors, style, and brand...");
 
+    let finalAnalysisState: AnalysisState = {
+      clothingItems: [],
+      dominantColors: [],
+      style: '',
+      brand: undefined,
+      similarItems: []
+    };
+
     try {
       const clothingAnalysisResult: AnalyzeClothingImageOutput | null = await analyzeClothingImage({ photoDataUri: dataUri });
 
-      let finalAnalysisState: AnalysisState = {
-        // Initialize with defaults or empty states
-        clothingItems: [],
-        dominantColors: [],
-        style: '',
-        brand: undefined, // Explicitly undefined, will be overridden if present in clothingAnalysisResult
-        similarItems: []
-      };
-
       if (clothingAnalysisResult) {
-        // Merge results from clothing analysis
         finalAnalysisState = { ...finalAnalysisState, ...clothingAnalysisResult };
 
         const hasMeaningfulAnalysis =
@@ -69,33 +65,31 @@ export default function StyleSeerPage() {
           clothingAnalysisResult.brand;
 
         if (hasMeaningfulAnalysis) {
-          setCurrentLoadingMessage("Finding similar items online...");
-          // Ensure all required inputs for findSimilarItems have fallbacks
-          const similarItemsData: FindSimilarItemsOutput = await findSimilarItems({
+          setCurrentLoadingMessage("Finding similar items online (this may take a moment)...");
+          const similarItemsResult: FindSimilarItemsOutput = await findSimilarItems({
             photoDataUri: dataUri,
-            clothingItem: clothingAnalysisResult.clothingItems?.[0] || "clothing item", // Fallback
-            brand: clothingAnalysisResult.brand, // Optional, so can be undefined
-            dominantColors: clothingAnalysisResult.dominantColors || [], // Fallback
-            style: clothingAnalysisResult.style || "any style", // Fallback
+            clothingItem: clothingAnalysisResult.clothingItems?.[0] || "clothing item",
+            brand: clothingAnalysisResult.brand,
+            dominantColors: clothingAnalysisResult.dominantColors || [],
+            style: clothingAnalysisResult.style || "any style",
           });
-          finalAnalysisState.similarItems = similarItemsData.similarItems || [];
+          finalAnalysisState.similarItems = similarItemsResult.similarItems || [];
         }
         setAnalysis(finalAnalysisState);
-        setError(null); // Clear previous errors if new analysis is successful
+        setError(null);
       } else {
-        // AI call for clothingAnalysis failed or returned null but didn't throw
         setError("Failed to analyze image. The AI could not retrieve clothing details.");
-        setAnalysis(null); // Keep analysis null as it failed
+        setAnalysis(null);
       }
     } catch (e: any) {
       console.error("Analysis Error:", e);
       const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during image processing.";
       setError(`An error occurred: ${errorMessage}. Please try again.`);
-      setAnalysis(null); // Ensure analysis is null on error
+      setAnalysis(null);
     } finally {
       setIsLoading(false);
     }
-  }, []); // Dependencies: state setters are stable, imported functions are stable
+  }, []);
 
   const handleReset = useCallback(() => {
     setImageUri(null);
@@ -103,7 +97,7 @@ export default function StyleSeerPage() {
     setError(null);
     setIsLoading(false);
     setCurrentLoadingMessage("Analyzing image...");
-  }, []); // Dependencies: state setters are stable
+  }, []);
 
   const showInitialHelper = !imageUri && !analysis && !isLoading && !error;
 

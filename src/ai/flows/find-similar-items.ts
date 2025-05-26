@@ -25,12 +25,13 @@ const FindSimilarItemsInputSchema = z.object({
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
 const SimilarItemSchema = z.object({
-  itemName: z.string().describe('The name or a brief description of the similar clothing item, including brand if available.'),
-  vendorLink: z.string().describe('A link to an online vendor selling this or a similar item. This must be a valid URL.'), // Removed .url() to avoid Gemini format conflict
+  itemTitle: z.string().describe('A concise title for the similar clothing item, including its brand if identifiable. This will be the main display text for the item.'),
+  itemDescription: z.string().describe('A detailed description (2-3 sentences) of the similar clothing item, highlighting key features, materials, or why it is a good match. This will be shown as a preview on hover.'),
+  vendorLink: z.string().describe('A link to an online vendor selling this or a similar item. This must be a valid URL.'),
 });
 
 const FindSimilarItemsOutputSchema = z.object({
-  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links.'),
+  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links. Aim for 3-5 items.'),
 });
 export type FindSimilarItemsOutput = z.infer<typeof FindSimilarItemsOutputSchema>;
 
@@ -43,7 +44,7 @@ const prompt = ai.definePrompt({
   input: {schema: FindSimilarItemsInputSchema},
   output: {schema: FindSimilarItemsOutputSchema},
   prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that closely match a reference image.
-Analyze the provided reference image and the clothing description. Your goal is to find 3-5 similar items from online vendors.
+Analyze the provided reference image and the clothing description. Your goal is to find similar items from online vendors.
 Prioritize items that are visually very similar to the one in the reference image.
 
 Reference Image: {{media url=photoDataUri}}
@@ -54,10 +55,13 @@ Dominant Colors: {{#each dominantColors}}{{{this}}} {{/each}}
 Style: {{{style}}}
 
 If a brand is provided or discernible from the image, try to find items from that same brand or brands of similar style and quality. If the brand is not clear, focus on visual similarity, color, and style.
-For each similar item, provide its name or a brief description (including the brand of the similar item if you can determine it) and a link to an online vendor.
 
-Return a JSON object containing a list of 'similarItems', where each item has an 'itemName' (a descriptive name for the clothing item, including its brand) and a 'vendorLink' (a URL to an online store). Ensure the vendorLink is a complete and valid URL.
-If no close matches are found, you can broaden your search slightly but still aim for visual and stylistic similarity. If you truly cannot find any items, return an empty list for 'similarItems'.`,
+For each similar item, provide:
+1.  'itemTitle': A concise title for the clothing item, including its brand if identifiable. This will be displayed as the main link text.
+2.  'itemDescription': A more detailed description (2-3 sentences) highlighting key features, materials, or why it's a strong match to the original. This will be shown as a preview on hover.
+3.  'vendorLink': A valid URL to an online vendor selling this or a similar item.
+
+Return a JSON object containing a list of 'similarItems'. Ensure you provide at least 3, and up to 5, distinct similar items if suitable matches can be found. If you truly cannot find at least 3 items, return as many as you can find. If no items are found, return an empty list for 'similarItems'. Ensure the vendorLink is a complete and valid URL.`,
 });
 
 const findSimilarItemsFlow = ai.defineFlow(
