@@ -16,7 +16,7 @@ const AnalyzeClothingImageInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
-      'A photo of clothing, as a data URI that must include a MIME type and use Base64 encoding. Expected format: data:<mimetype>;base64,<encoded_data>.'
+      "A photo of clothing, as a data URI. It must include a MIME type (e.g., 'image/jpeg', 'image/png') and use Base64 encoding for the image data. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
 });
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
@@ -25,7 +25,7 @@ const AnalyzeClothingImageOutputSchema = z.object({
   clothingItems: z.array(z.string()).describe('List of clothing items detected in the image.'),
   dominantColors: z.array(z.string()).describe('List of dominant colors detected in the clothing.'),
   style: z.string().describe('The overall style of the clothing (e.g., casual, formal, vintage).'),
-  brand: z.string().optional().describe('The brand of the clothing, if identifiable from the image or item characteristics.'),
+  brand: z.string().optional().describe('The brand of the clothing, if identifiable from the image or item characteristics. Omit or set to null if not identifiable.'),
 });
 export type AnalyzeClothingImageOutput = z.infer<typeof AnalyzeClothingImageOutputSchema>;
 
@@ -55,6 +55,7 @@ const analyzeClothingImageFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    return output!; // Assuming prompt will throw an error if output is truly null/undefined and not matching schema.
+                  // Or, handle potential null output more gracefully if the model can return empty for valid requests.
   }
 );
