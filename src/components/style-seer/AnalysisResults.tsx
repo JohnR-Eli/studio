@@ -1,13 +1,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle, Ticket, Image as ImageIcon } from 'lucide-react';
+import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle, Ticket } from 'lucide-react';
 import NextImage from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-// Use the exported SimilarItem type from the flow, but we'll define it locally to omit itemImageDataUri
+// Use the exported SimilarItem type from the flow
 import type { SimilarItem as GenkitSimilarItemBase } from '@/ai/flows/find-similar-items';
 
-// Define the SimilarItem interface locally, omitting itemImageDataUri
+// Define the SimilarItem interface locally to match expected structure
 interface SimilarItem extends Omit<GenkitSimilarItemBase, 'itemImageDataUri'> {
   // No itemImageDataUri here
 }
@@ -34,7 +34,7 @@ export default function AnalysisResults({
   }
   
   const hasSimilarItems = similarItems && similarItems.length > 0;
-  const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || (dominantColors && dominantColors.length > 0) || style || brand;
+  const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || (dominantColors && dominantColors.length > 0) || !!style || !!brand;
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
@@ -60,7 +60,7 @@ export default function AnalysisResults({
                </CardTitle>
              </CardHeader>
              <CardContent>
-               <p className="text-md text-amber-600">We couldn't identify specific clothing details (items, colors, style) in this image. Try a different image with clearer apparel.</p>
+               <p className="text-md text-amber-600">We couldn't identify specific clothing details in this image. Try a different image with clearer apparel.</p>
              </CardContent>
            </Card>
         )}
@@ -134,12 +134,9 @@ export default function AnalysisResults({
                 <CardTitle className="flex items-center gap-2 text-xl">
                     <ShoppingBag size={24} className="text-primary" /> Similar Items Online
                 </CardTitle>
-                {!hasSimilarItems && clothingItems && clothingItems.length > 0 && (
+                {!hasSimilarItems && ( // Simplified condition: If there's analysis, but no similar items were found
                     <CardDescription>We couldn't find specific online matches or suggestions for this item at the moment.</CardDescription>
                 )}
-                 {(!clothingItems || clothingItems.length === 0) && !brand && !style && (
-                    <CardDescription>Upload an image with clothing to find similar items.</CardDescription>
-                 )}
                 </CardHeader>
                 {hasSimilarItems && (
                 <CardContent>
@@ -165,7 +162,6 @@ export default function AnalysisResults({
                             </a>
                           </TooltipTrigger>
                           <TooltipContent side="top" align="start" className="max-w-xs bg-popover text-popover-foreground p-3 rounded-md shadow-lg border">
-                            {/* Image preview removed */}
                             <p className="text-sm font-semibold mb-1">{item.itemTitle}</p>
                             <p className="text-sm">{item.itemDescription}</p>
                           </TooltipContent>
@@ -182,3 +178,4 @@ export default function AnalysisResults({
     </div>
   );
 }
+
