@@ -1,13 +1,14 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // typescript: {
+  //   ignoreBuildErrors: true, // Removing this to enable stricter checks
+  // },
+  // eslint: {
+  //   ignoreDuringBuilds: true, // Removing this to enable stricter checks
+  // },
   images: {
     remotePatterns: [
       {
