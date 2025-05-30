@@ -42,7 +42,7 @@ export default function AnalysisResults({
         <Card className="lg:col-span-1 overflow-hidden shadow-lg rounded-xl transition-all hover:shadow-xl">
           <CardHeader className="p-0">
             <div className="aspect-[4/3] relative w-full bg-muted/30 rounded-t-xl">
-              <NextImage src={imagePreview} alt="Analyzed image" layout="fill" objectFit="contain" className="rounded-t-xl" data-ai-hint="fashion clothing" />
+              <NextImage src={imagePreview} alt="Analyzed image" fill className="rounded-t-xl object-contain" data-ai-hint="fashion clothing" />
             </div>
           </CardHeader>
           <CardContent className="p-4 text-center">

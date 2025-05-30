@@ -50,9 +50,8 @@ export default function SearchHistory({ history, onSelectHistoryItem }: SearchHi
               <NextImage
                 src={entry.imageUri}
                 alt="Analyzed item thumbnail"
-                layout="fill"
-                objectFit="cover"
-                className="rounded-md"
+                fill
+                className="rounded-md object-cover"
                 data-ai-hint="clothing thumbnail"
               />
             </div>
