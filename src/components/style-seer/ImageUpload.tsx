@@ -38,7 +38,7 @@ export default function ImageUpload({ onImageUpload, isLoading }: ImageUploadPro
     }
   }, [onImageUpload]);
 
-  const onDrop = useCallback((event: DragEvent<HTMLDivElement>) => {
+  const onDrop = useCallback((event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     event.stopPropagation();
     setIsDragging(false);
@@ -48,14 +48,14 @@ export default function ImageUpload({ onImageUpload, isLoading }: ImageUploadPro
     }
   }, [isLoading, handleFileChange]);
 
-  const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
+  const onDragOver = useCallback((event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     event.stopPropagation();
     if (isLoading) return;
     setIsDragging(true);
   }, [isLoading]);
 
-  const onDragLeave = useCallback((event: DragEvent<HTMLDivElement>) => {
+  const onDragLeave = useCallback((event: DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
     event.stopPropagation();
     setIsDragging(false);
