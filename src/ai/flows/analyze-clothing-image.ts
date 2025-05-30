@@ -22,10 +22,10 @@ const AnalyzeClothingImageInputSchema = z.object({
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
 
 const AnalyzeClothingImageOutputSchema = z.object({
-  clothingItems: z.array(z.string()).describe('List of clothing items detected in the image.'),
+  clothingItems: z.array(z.string()).describe('List of clothing items or categories detected in the image (e.g., "T-Shirt", "Jeans", "Sneakers").'),
   dominantColors: z.array(z.string()).describe('List of dominant colors detected in the clothing.'),
-  style: z.string().describe('The overall style of the clothing (e.g., casual, formal, vintage).'),
-  brand: z.string().optional().describe('The brand of the clothing, if identifiable from the image or item characteristics. Omit or set to null if not identifiable.'),
+  style: z.string().describe('The overall style of the clothing (e.g., casual, formal, vintage, sporty).'),
+  brand: z.string().optional().describe('The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you may omit this field or set it to null.'),
 });
 export type AnalyzeClothingImageOutput = z.infer<typeof AnalyzeClothingImageOutputSchema>;
 
@@ -39,10 +39,10 @@ const prompt = ai.definePrompt({
   output: {schema: AnalyzeClothingImageOutputSchema},
   prompt: `You are an AI fashion assistant. Analyze the clothing in the image and provide the following information:
 
-- A list of the clothing items present in the image.
+- A list of the clothing items or categories present in the image (e.g., "T-Shirt", "Dress", "Hoodie").
 - A list of the dominant colors in the clothing.
-- The overall style of the clothing (e.g., casual, formal, vintage).
-- The brand of the clothing, if you can identify it from the visual details or typical style of the item. If no brand is clear, omit this field or set it to null.
+- The overall style of the clothing (e.g., casual, formal, vintage, sporty).
+- The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you may omit this field or set it to null.
 
 Image: {{media url=photoDataUri}}`,
 });
@@ -55,7 +55,6 @@ const analyzeClothingImageFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!; // Assuming prompt will throw an error if output is truly null/undefined and not matching schema.
-                  // Or, handle potential null output more gracefully if the model can return empty for valid requests.
+    return output!;
   }
 );

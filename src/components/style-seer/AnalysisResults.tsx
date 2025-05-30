@@ -14,10 +14,10 @@ interface SimilarItem extends Omit<GenkitSimilarItemBase, 'itemImageDataUri'> {
 
 interface AnalysisResultsProps {
   imagePreview: string | null;
-  clothingItems?: string[];
+  clothingItems?: string[]; // Represents categories
   dominantColors?: string[];
   style?: string;
-  brand?: string;
+  brand?: string; // Brand of the original item
   similarItems?: SimilarItem[];
 }
 
@@ -69,7 +69,7 @@ export default function AnalysisResults({
           <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <Shirt size={24} className="text-primary" /> Detected Clothing
+                <Shirt size={24} className="text-primary" /> Category
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -86,7 +86,7 @@ export default function AnalysisResults({
           <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <Ticket size={24} className="text-primary" /> Brand
+                <Ticket size={24} className="text-primary" /> Brand (Original Item)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -134,7 +134,7 @@ export default function AnalysisResults({
                 <CardTitle className="flex items-center gap-2 text-xl">
                     <ShoppingBag size={24} className="text-primary" /> Similar Items Online
                 </CardTitle>
-                {!hasSimilarItems && ( // Simplified condition: If there's analysis, but no similar items were found
+                {!hasSimilarItems && (
                     <CardDescription>We couldn't find specific online matches or suggestions for this item at the moment.</CardDescription>
                 )}
                 </CardHeader>
@@ -152,7 +152,7 @@ export default function AnalysisResults({
                               rel="noopener noreferrer"
                               className="block group"
                             >
-                              <p className="font-semibold text-md mb-1.5 text-foreground group-hover:text-accent transition-colors">{item.itemTitle}</p>
+                              <p className="font-semibold text-md mb-1.5 text-foreground group-hover:text-accent transition-colors">{item.itemTitle}</p> {/* itemTitle should include brand of similar item */}
                               <div className="flex items-center gap-1.5 text-sm text-accent/80 group-hover:text-accent transition-colors">
                                 <ExternalLink size={16} />
                                 <span className="underline group-hover:no-underline truncate">
@@ -162,7 +162,7 @@ export default function AnalysisResults({
                             </a>
                           </TooltipTrigger>
                           <TooltipContent side="top" align="start" className="max-w-xs bg-popover text-popover-foreground p-3 rounded-md shadow-lg border">
-                            <p className="text-sm font-semibold mb-1">{item.itemTitle}</p>
+                            <p className="text-sm font-semibold mb-1">{item.itemTitle}</p> {/* itemTitle repeated for emphasis in tooltip */}
                             <p className="text-sm">{item.itemDescription}</p>
                           </TooltipContent>
                         </Tooltip>
@@ -178,4 +178,3 @@ export default function AnalysisResults({
     </div>
   );
 }
-
