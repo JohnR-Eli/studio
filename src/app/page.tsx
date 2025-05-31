@@ -17,13 +17,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
 
-// AnalysisState now reflects the updated AnalyzeClothingImageOutput
 type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
   similarItems?: SimilarItem[];
 };
 
 export type HistoryEntry = {
-  id: string; 
+  id: string;
   timestamp: Date;
   imageUri: string;
   analysisResult: AnalysisState;
@@ -53,45 +52,45 @@ export default function StyleSeerPage() {
     setAnalysis(null);
     setError(null);
     setIsLoading(true);
-    setCurrentLoadingMessage("Analyzing clothing, gender, and brand...");
+    setCurrentLoadingMessage("Processing image and finding similar items...");
 
     let finalAnalysisState: AnalysisState = {
       clothingItems: [],
-      genderDepartment: '', // Default for new field
+      genderDepartment: '',
       brand: undefined,
       similarItems: []
     };
 
     try {
-      const clothingAnalysisResult: AnalyzeClothingImageOutput | null = await analyzeClothingImage({ photoDataUri: dataUri });
+      // Run both AI calls in parallel
+      const [clothingAnalysisResult, similarItemsResult] = await Promise.all([
+        analyzeClothingImage({ photoDataUri: dataUri }),
+        findSimilarItems({
+          photoDataUri: dataUri,
+          clothingItem: "clothing item from image", // Generic item for parallel call
+          brand: undefined, // Brand unknown at this stage for parallel call
+          dominantColors: undefined,
+          style: undefined,
+        })
+      ]);
 
       if (clothingAnalysisResult) {
         finalAnalysisState = { ...finalAnalysisState, ...clothingAnalysisResult };
+      } else {
+        // Keep track of partial errors if needed, or set a general one
+        console.warn("Clothing analysis returned no result, but similar items might still be found.");
+      }
 
-        const hasMeaningfulAnalysis =
-          (clothingAnalysisResult.clothingItems && clothingAnalysisResult.clothingItems.length > 0) ||
-          clothingAnalysisResult.brand ||
-          clothingAnalysisResult.genderDepartment;
+      finalAnalysisState.similarItems = (similarItemsResult?.similarItems || []).map(item => ({
+        itemTitle: item.itemTitle,
+        itemDescription: item.itemDescription,
+        vendorLink: item.vendorLink,
+      }));
+      
+      setAnalysis(finalAnalysisState);
 
-        if (hasMeaningfulAnalysis) {
-          setCurrentLoadingMessage("Finding similar items (this may take a moment)...");
-          const similarItemsResult: FindSimilarItemsOutput = await findSimilarItems({
-            photoDataUri: dataUri,
-            clothingItem: clothingAnalysisResult.clothingItems?.[0] || "clothing item",
-            brand: clothingAnalysisResult.brand,
-            // dominantColors and style are now optional in findSimilarItems flow
-            dominantColors: undefined, 
-            style: undefined,
-          });
-          finalAnalysisState.similarItems = (similarItemsResult.similarItems || []).map(item => ({
-            itemTitle: item.itemTitle,
-            itemDescription: item.itemDescription,
-            vendorLink: item.vendorLink,
-          }));
-        }
-        setAnalysis(finalAnalysisState);
-        setError(null);
-
+      // Add to history only if there's some meaningful result
+      if (finalAnalysisState.clothingItems?.length || finalAnalysisState.brand || finalAnalysisState.genderDepartment || finalAnalysisState.similarItems?.length) {
         setSearchHistory(prevHistory => {
           const newEntry: HistoryEntry = {
             id: new Date().toISOString(),
@@ -102,15 +101,23 @@ export default function StyleSeerPage() {
           const updatedHistory = [newEntry, ...prevHistory];
           return updatedHistory.slice(0, MAX_HISTORY_ITEMS);
         });
-
-      } else {
-        setError("Failed to analyze image. The AI could not retrieve clothing details.");
-        setAnalysis(null);
       }
+
+      if (!clothingAnalysisResult && (!similarItemsResult || similarItemsResult.similarItems.length === 0)) {
+        setError("Failed to analyze image or find similar items. The AI could not retrieve details.");
+        setAnalysis(null);
+      } else {
+        setError(null);
+      }
+
     } catch (e: any) {
       console.error("Analysis Error:", e);
       const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during image processing.";
-      setError(`An error occurred: ${errorMessage}. Please try again or use a different image.`);
+      if (errorMessage.includes("NOT_FOUND")) {
+        setError(`Model not found. Please check API key and project settings. Original error: ${errorMessage}`);
+      } else {
+        setError(`An error occurred: ${errorMessage}. Please try again or use a different image.`);
+      }
       setAnalysis(null);
     } finally {
       setIsLoading(false);
@@ -147,7 +154,7 @@ export default function StyleSeerPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto">
-              <ScrollArea className="h-full"> 
+              <ScrollArea className="h-full">
                 <div className="p-4 pt-0">
                  <SearchHistory history={searchHistory} onSelectHistoryItem={handleSelectHistoryItem} />
                 </div>
@@ -178,7 +185,7 @@ export default function StyleSeerPage() {
                   <CardContent className="p-0">
                     <ol className="list-decimal list-inside text-muted-foreground space-y-1.5 text-sm">
                         <li>Drag & drop or click to upload an image featuring clothing.</li>
-                        <li>Our AI meticulously analyzes items, gender department, and brand.</li>
+                        <li>Our AI meticulously analyzes items, gender department, and brand, while simultaneously searching for similar items.</li>
                         <li>Discover the results and get links to similar fashion items online. Hover for a quick description.</li>
                     </ol>
                   </CardContent>
@@ -206,7 +213,7 @@ export default function StyleSeerPage() {
                 <AnalysisResults
                   imagePreview={imageUri}
                   clothingItems={analysis.clothingItems}
-                  genderDepartment={analysis.genderDepartment} // Pass new prop
+                  genderDepartment={analysis.genderDepartment}
                   brand={analysis.brand}
                   similarItems={analysis.similarItems}
                 />
@@ -229,3 +236,4 @@ export default function StyleSeerPage() {
     </div>
   );
 }
+

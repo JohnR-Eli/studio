@@ -17,7 +17,7 @@ const FindSimilarItemsInputSchema = z.object({
     .describe(
       "The original image of the clothing item, as a data URI. It must include a MIME type (e.g., 'image/jpeg', 'image/png') and use Base64 encoding for the image data. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  clothingItem: z.string().describe('The type or category of clothing item (e.g., dress, shirt, pants).'),
+  clothingItem: z.string().describe('The type or category of clothing item (e.g., dress, shirt, pants, or a general placeholder like "clothing item from image").'),
   brand: z.string().optional().describe('The brand of the original clothing item, if known. This is highly useful for finding accurate matches or alternatives.'),
   dominantColors: z.array(z.string()).optional().describe('The dominant colors of the clothing item. This is now optional.'),
   style: z.string().optional().describe('The style of the clothing item (e.g., casual, formal, vintage). This is now optional.'),
@@ -32,7 +32,7 @@ const SimilarItemSchema = z.object({
 export type SimilarItem = z.infer<typeof SimilarItemSchema>;
 
 const FindSimilarItemsOutputSchema = z.object({
-  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links. Aim for 3-5 items.'),
+  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links. Aim for around 3 items.'),
 });
 export type FindSimilarItemsOutput = z.infer<typeof FindSimilarItemsOutputSchema>;
 
@@ -45,7 +45,7 @@ const similarItemsTextPrompt = ai.definePrompt({
   input: {schema: FindSimilarItemsInputSchema},
   output: {schema: FindSimilarItemsOutputSchema },
   prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that closely match a reference image and description.
-Analyze the provided reference image and the clothing description. Your goal is to find 3 to 5 similar items from online vendors.
+Analyze the provided reference image and the clothing description. Your goal is to find around 3 similar items from online vendors.
 Prioritize items that are visually very similar to the one in the reference image. When selecting items, try to choose products that are likely to be currently in stock and available for purchase (e.g., prefer items from current collections, and be cautious with items that appear to be on clearance or from very old listings, as they are more likely to be out of stock).
 
 Reference Image: {{media url=photoDataUri}}
@@ -56,14 +56,14 @@ Clothing Item Category: {{{clothingItem}}}
 {{#if style}}Style: {{{style}}}{{/if}}
 
 If an original brand is provided or discernible from the image, try to find items from that same brand first, or brands of very similar style and quality. If the original brand is not clear or specified, focus on visual similarity to find suitable alternatives.
-If color and style information are provided, use them to refine your search. If not, focus primarily on the clothing item category and brand (if available).
+If color and style information are provided, use them to refine your search. If not, focus primarily on the clothing item category and brand (if available), and the image itself.
 
 For each similar item you suggest, provide:
 1.  'itemTitle': A concise title for the clothing item. Crucially, if you can identify the brand of this *similar item*, include it in the title (e.g., "BrandName Casual Linen Shirt", "DesignerX Floral Maxi Dress").
 2.  'itemDescription': A more detailed description (2-3 sentences) highlighting key features, materials, or why it's a strong match to the original.
 3.  'vendorLink': A direct URL to the product page for an item you believe to be currently available on an online vendor site if a specific match is found. If an exact product page for an in-stock item isn't clear, provide a URL to a search results page on the vendor's site for the item (e.g., "https://vendor.com/search?q=BrandName+Red+Dress") or a relevant category page that is likely to contain similar, available items. Ensure this is a valid URL.
 
-Return a JSON object containing a list of 'similarItems'. Ensure you provide at least 3, and up to 5, distinct similar items if suitable matches can be found. If you truly cannot find at least 3 items, return as many as you can find. If no items are found, return an empty list for 'similarItems'.`,
+Return a JSON object containing a list of 'similarItems'. Ensure you provide around 3 distinct similar items if suitable matches can be found. If you truly cannot find at least this many, return as many as you can find. If no items are found, return an empty list for 'similarItems'.`,
 });
 
 const findSimilarItemsFlow = ai.defineFlow(
