@@ -4,6 +4,6 @@ import {googleAI} from '@genkit-ai/googleai';
 
 export const ai = genkit({
   plugins: [googleAI()],
-  model: 'gemini-1.0-pro-vision-latest', // Reverted to prioritize accuracy
+  model: 'googleai/gemini-2.5-flash-preview-05-20', 
 });
 

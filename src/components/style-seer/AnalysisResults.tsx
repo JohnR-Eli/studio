@@ -1,28 +1,25 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle, Ticket, Users } from 'lucide-react'; // Added Users
+import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users } from 'lucide-react';
 import NextImage from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SimilarItem as GenkitSimilarItemBase } from '@/ai/flows/find-similar-items';
 
-interface SimilarItem extends Omit<GenkitSimilarItemBase, 'itemImageDataUri'> {
-  // No itemImageDataUri here
-}
+interface SimilarItem extends Omit<GenkitSimilarItemBase, 'itemImageDataUri'> {}
 
 interface AnalysisResultsProps {
   imagePreview: string | null;
   clothingItems?: string[];
-  genderDepartment?: string; // New prop
+  genderDepartment?: string;
   brand?: string; 
   similarItems?: SimilarItem[];
-  // dominantColors and style are removed
 }
 
 export default function AnalysisResults({
   imagePreview,
   clothingItems,
-  genderDepartment, // Destructure new prop
+  genderDepartment,
   brand,
   similarItems,
 }: AnalysisResultsProps) {
@@ -96,7 +93,7 @@ export default function AnalysisResults({
           <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <Ticket size={24} className="text-primary" /> Brand
+                <Ticket size={24} className="text-primary" /> Brand (AI Approximation)
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -104,9 +101,6 @@ export default function AnalysisResults({
             </CardContent>
           </Card>
         )}
-
-        {/* Dominant Colors section removed */}
-        {/* Style section removed */}
 
         {hasAnyAnalysis && ( 
             <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">

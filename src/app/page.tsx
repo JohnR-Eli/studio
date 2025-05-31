@@ -10,7 +10,7 @@ import SearchHistory from '@/components/style-seer/SearchHistory';
 import { Button } from '@/components/ui/button';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { findSimilarItems, FindSimilarItemsOutput, SimilarItem as GenkitSimilarItem } from '@/ai/flows/find-similar-items';
-import { AlertCircle, Sparkles, RotateCcw, History as HistoryIcon } from 'lucide-react';
+import { AlertCircle, RotateCcw, History as HistoryIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -69,15 +69,12 @@ export default function StyleSeerPage() {
           photoDataUri: dataUri,
           clothingItem: "clothing item from image", // Generic item for parallel call
           brand: undefined, // Brand unknown at this stage for parallel call
-          dominantColors: undefined,
-          style: undefined,
         })
       ]);
 
       if (clothingAnalysisResult) {
         finalAnalysisState = { ...finalAnalysisState, ...clothingAnalysisResult };
       } else {
-        // Keep track of partial errors if needed, or set a general one
         console.warn("Clothing analysis returned no result, but similar items might still be found.");
       }
 
@@ -89,7 +86,6 @@ export default function StyleSeerPage() {
       
       setAnalysis(finalAnalysisState);
 
-      // Add to history only if there's some meaningful result
       if (finalAnalysisState.clothingItems?.length || finalAnalysisState.brand || finalAnalysisState.genderDepartment || finalAnalysisState.similarItems?.length) {
         setSearchHistory(prevHistory => {
           const newEntry: HistoryEntry = {
@@ -139,8 +135,6 @@ export default function StyleSeerPage() {
     setError(null);
   }, []);
 
-  const showInitialHelper = !imageUri && !analysis && !isLoading && !error;
-
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
@@ -166,31 +160,8 @@ export default function StyleSeerPage() {
         <main className="flex-1 flex flex-col overflow-y-auto">
           <div className="container mx-auto px-4 py-8 md:py-12 flex-grow">
             <div className="text-center mb-8 md:mb-12">
-              <h2 className="text-3xl md:text-4xl font-semibold tracking-tight mb-3">
-                Unlock Your Fashion Insights
-              </h2>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
-                Upload an image to instantly analyze clothing items, gender, and brand. We'll even help you find similar pieces online!
-              </p>
+              {/* Flavor text removed as per request */}
             </div>
-
-            {showInitialHelper && (
-                <Card className="bg-primary/5 border-primary/10 p-6 rounded-xl mb-8 max-w-2xl mx-auto shadow-sm">
-                  <CardHeader className="p-0 mb-3">
-                    <CardTitle className="flex items-center gap-3 text-primary text-xl">
-                        <Sparkles className="h-7 w-7" />
-                        How StyleSeer Works
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <ol className="list-decimal list-inside text-muted-foreground space-y-1.5 text-sm">
-                        <li>Drag & drop or click to upload an image featuring clothing.</li>
-                        <li>Our AI meticulously analyzes items, gender department, and brand, while simultaneously searching for similar items.</li>
-                        <li>Discover the results and get links to similar fashion items online. Hover for a quick description.</li>
-                    </ol>
-                  </CardContent>
-                </Card>
-            )}
 
             <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
 
@@ -228,7 +199,7 @@ export default function StyleSeerPage() {
           </div>
           <footer className="text-center py-8 border-t border-border/60 mt-auto">
             <p className="text-sm text-muted-foreground">
-              StyleSeer &copy; {new Date().getFullYear()} - Your AI Fashion Assistant.
+              Fitted Tool &copy; {new Date().getFullYear()} - Your AI Fashion Assistant.
             </p>
           </footer>
         </main>
@@ -236,4 +207,3 @@ export default function StyleSeerPage() {
     </div>
   );
 }
-

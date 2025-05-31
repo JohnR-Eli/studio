@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'StyleSeer',
+  title: 'Fitted Tool',
   description: 'AI-powered fashion analysis and discovery',
 };
 
