@@ -16,11 +16,11 @@ function getSummary(analysisResult: HistoryEntry['analysisResult']): string {
   if (analysisResult.clothingItems && analysisResult.clothingItems.length > 0) {
     parts.push(analysisResult.clothingItems.slice(0, 2).join(', '));
   }
-  // analysisResult.style was removed
+  // analysisResult.style was removed, causing the build error
   if (analysisResult.brand) {
     parts.push(analysisResult.brand);
   }
-  // analysisResult.dominantColors was removed
+  // analysisResult.dominantColors was also removed
   // If brand and clothingItems are missing, we can check for genderDepartment as a fallback for summary
   if (parts.length === 0 && analysisResult.genderDepartment) {
     parts.push(analysisResult.genderDepartment);
@@ -81,4 +81,3 @@ export default function SearchHistory({ history, onSelectHistoryItem }: SearchHi
     </div>
   );
 }
-
