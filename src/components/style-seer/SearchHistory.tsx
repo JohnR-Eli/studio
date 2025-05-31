@@ -16,14 +16,14 @@ function getSummary(analysisResult: HistoryEntry['analysisResult']): string {
   if (analysisResult.clothingItems && analysisResult.clothingItems.length > 0) {
     parts.push(analysisResult.clothingItems.slice(0, 2).join(', '));
   }
-  if (analysisResult.style) {
-    parts.push(analysisResult.style);
-  }
+  // analysisResult.style was removed
   if (analysisResult.brand) {
     parts.push(analysisResult.brand);
   }
-  if (parts.length === 0 && analysisResult.dominantColors && analysisResult.dominantColors.length > 0) {
-    parts.push(analysisResult.dominantColors.slice(0,2).join(', ') + ' colors');
+  // analysisResult.dominantColors was removed
+  // If brand and clothingItems are missing, we can check for genderDepartment as a fallback for summary
+  if (parts.length === 0 && analysisResult.genderDepartment) {
+    parts.push(analysisResult.genderDepartment);
   }
   if (parts.length === 0) {
     return "Analyzed Image";
@@ -81,3 +81,4 @@ export default function SearchHistory({ history, onSelectHistoryItem }: SearchHi
     </div>
   );
 }
+
