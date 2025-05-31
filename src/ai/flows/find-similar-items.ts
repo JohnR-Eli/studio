@@ -19,8 +19,8 @@ const FindSimilarItemsInputSchema = z.object({
     ),
   clothingItem: z.string().describe('The type or category of clothing item (e.g., dress, shirt, pants).'),
   brand: z.string().optional().describe('The brand of the original clothing item, if known. This is highly useful for finding accurate matches or alternatives.'),
-  dominantColors: z.array(z.string()).describe('The dominant colors of the clothing item.'),
-  style: z.string().describe('The style of the clothing item (e.g., casual, formal, vintage).'),
+  dominantColors: z.array(z.string()).optional().describe('The dominant colors of the clothing item. This is now optional.'),
+  style: z.string().optional().describe('The style of the clothing item (e.g., casual, formal, vintage). This is now optional.'),
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
@@ -52,10 +52,11 @@ Reference Image: {{media url=photoDataUri}}
 
 Clothing Item Category: {{{clothingItem}}}
 {{#if brand}}Original Brand (if known): {{{brand}}}{{/if}}
-Dominant Colors: {{#each dominantColors}}{{{this}}} {{/each}}
-Style: {{{style}}}
+{{#if dominantColors.length}}Dominant Colors: {{#each dominantColors}}{{{this}}} {{/each}}{{/if}}
+{{#if style}}Style: {{{style}}}{{/if}}
 
-If an original brand is provided or discernible from the image, try to find items from that same brand first, or brands of very similar style and quality. If the original brand is not clear or specified, focus on visual similarity, color, and style to find suitable alternatives.
+If an original brand is provided or discernible from the image, try to find items from that same brand first, or brands of very similar style and quality. If the original brand is not clear or specified, focus on visual similarity to find suitable alternatives.
+If color and style information are provided, use them to refine your search. If not, focus primarily on the clothing item category and brand (if available).
 
 For each similar item you suggest, provide:
 1.  'itemTitle': A concise title for the clothing item. Crucially, if you can identify the brand of this *similar item*, include it in the title (e.g., "BrandName Casual Linen Shirt", "DesignerX Floral Maxi Dress").
@@ -81,3 +82,4 @@ const findSimilarItemsFlow = ai.defineFlow(
     return output;
   }
 );
+

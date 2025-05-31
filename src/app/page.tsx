@@ -6,7 +6,7 @@ import ImageUpload from '@/components/style-seer/ImageUpload';
 import AnalysisResults from '@/components/style-seer/AnalysisResults';
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
-import SearchHistory from '@/components/style-seer/SearchHistory'; // New import
+import SearchHistory from '@/components/style-seer/SearchHistory';
 import { Button } from '@/components/ui/button';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { findSimilarItems, FindSimilarItemsOutput, SimilarItem as GenkitSimilarItem } from '@/ai/flows/find-similar-items';
@@ -17,12 +17,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
 
+// AnalysisState now reflects the updated AnalyzeClothingImageOutput
 type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
   similarItems?: SimilarItem[];
 };
 
 export type HistoryEntry = {
-  id: string; // Unique ID, e.g., timestamp as string or uuid
+  id: string; 
   timestamp: Date;
   imageUri: string;
   analysisResult: AnalysisState;
@@ -52,12 +53,11 @@ export default function StyleSeerPage() {
     setAnalysis(null);
     setError(null);
     setIsLoading(true);
-    setCurrentLoadingMessage("Analyzing clothing, colors, style, and brand...");
+    setCurrentLoadingMessage("Analyzing clothing, gender, and brand...");
 
     let finalAnalysisState: AnalysisState = {
       clothingItems: [],
-      dominantColors: [],
-      style: '',
+      genderDepartment: '', // Default for new field
       brand: undefined,
       similarItems: []
     };
@@ -70,9 +70,8 @@ export default function StyleSeerPage() {
 
         const hasMeaningfulAnalysis =
           (clothingAnalysisResult.clothingItems && clothingAnalysisResult.clothingItems.length > 0) ||
-          (clothingAnalysisResult.dominantColors && clothingAnalysisResult.dominantColors.length > 0) ||
-          clothingAnalysisResult.style ||
-          clothingAnalysisResult.brand;
+          clothingAnalysisResult.brand ||
+          clothingAnalysisResult.genderDepartment;
 
         if (hasMeaningfulAnalysis) {
           setCurrentLoadingMessage("Finding similar items (this may take a moment)...");
@@ -80,8 +79,9 @@ export default function StyleSeerPage() {
             photoDataUri: dataUri,
             clothingItem: clothingAnalysisResult.clothingItems?.[0] || "clothing item",
             brand: clothingAnalysisResult.brand,
-            dominantColors: clothingAnalysisResult.dominantColors || [],
-            style: clothingAnalysisResult.style || "any style",
+            // dominantColors and style are now optional in findSimilarItems flow
+            dominantColors: undefined, 
+            style: undefined,
           });
           finalAnalysisState.similarItems = (similarItemsResult.similarItems || []).map(item => ({
             itemTitle: item.itemTitle,
@@ -92,16 +92,15 @@ export default function StyleSeerPage() {
         setAnalysis(finalAnalysisState);
         setError(null);
 
-        // Add to history
         setSearchHistory(prevHistory => {
           const newEntry: HistoryEntry = {
-            id: new Date().toISOString(), // Simple unique ID
+            id: new Date().toISOString(),
             timestamp: new Date(),
             imageUri: dataUri,
             analysisResult: finalAnalysisState,
           };
           const updatedHistory = [newEntry, ...prevHistory];
-          return updatedHistory.slice(0, MAX_HISTORY_ITEMS); // Limit history size
+          return updatedHistory.slice(0, MAX_HISTORY_ITEMS);
         });
 
       } else {
@@ -138,8 +137,7 @@ export default function StyleSeerPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
-      <div className="flex flex-1 overflow-hidden"> {/* Main content area with sidebar */}
-        {/* Sidebar for History */}
+      <div className="flex flex-1 overflow-hidden">
         <aside className="w-72 md:w-80 lg:w-96 flex-shrink-0 border-r border-border/60 bg-card p-4 hidden md:flex flex-col overflow-y-auto">
           <Card className="flex-1 flex flex-col overflow-hidden shadow-md">
             <CardHeader className="pb-3 pt-4 px-4">
@@ -149,7 +147,7 @@ export default function StyleSeerPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto">
-              <ScrollArea className="h-full"> {/* Ensure ScrollArea takes available height */}
+              <ScrollArea className="h-full"> 
                 <div className="p-4 pt-0">
                  <SearchHistory history={searchHistory} onSelectHistoryItem={handleSelectHistoryItem} />
                 </div>
@@ -158,7 +156,6 @@ export default function StyleSeerPage() {
           </Card>
         </aside>
 
-        {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-y-auto">
           <div className="container mx-auto px-4 py-8 md:py-12 flex-grow">
             <div className="text-center mb-8 md:mb-12">
@@ -166,7 +163,7 @@ export default function StyleSeerPage() {
                 Unlock Your Fashion Insights
               </h2>
               <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
-                Upload an image to instantly analyze clothing items, dominant colors, and overall style. We'll even help you find similar pieces online!
+                Upload an image to instantly analyze clothing items, gender, and brand. We'll even help you find similar pieces online!
               </p>
             </div>
 
@@ -181,7 +178,7 @@ export default function StyleSeerPage() {
                   <CardContent className="p-0">
                     <ol className="list-decimal list-inside text-muted-foreground space-y-1.5 text-sm">
                         <li>Drag & drop or click to upload an image featuring clothing.</li>
-                        <li>Our AI meticulously analyzes items, colors, style, and brand.</li>
+                        <li>Our AI meticulously analyzes items, gender department, and brand.</li>
                         <li>Discover the results and get links to similar fashion items online. Hover for a quick description.</li>
                     </ol>
                   </CardContent>
@@ -209,8 +206,7 @@ export default function StyleSeerPage() {
                 <AnalysisResults
                   imagePreview={imageUri}
                   clothingItems={analysis.clothingItems}
-                  dominantColors={analysis.dominantColors}
-                  style={analysis.style}
+                  genderDepartment={analysis.genderDepartment} // Pass new prop
                   brand={analysis.brand}
                   similarItems={analysis.similarItems}
                 />
@@ -223,7 +219,7 @@ export default function StyleSeerPage() {
               </>
             )}
           </div>
-          <footer className="text-center py-8 border-t border-border/60 mt-auto"> {/* mt-auto to push footer down */}
+          <footer className="text-center py-8 border-t border-border/60 mt-auto">
             <p className="text-sm text-muted-foreground">
               StyleSeer &copy; {new Date().getFullYear()} - Your AI Fashion Assistant.
             </p>

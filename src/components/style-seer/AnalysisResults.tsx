@@ -1,40 +1,37 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle, Ticket } from 'lucide-react';
+import { ExternalLink, Tag, Palette as PaletteIcon, Shirt, ShoppingBag, AlertTriangle, Ticket, Users } from 'lucide-react'; // Added Users
 import NextImage from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-// Use the exported SimilarItem type from the flow
 import type { SimilarItem as GenkitSimilarItemBase } from '@/ai/flows/find-similar-items';
 
-// Define the SimilarItem interface locally to match expected structure
 interface SimilarItem extends Omit<GenkitSimilarItemBase, 'itemImageDataUri'> {
   // No itemImageDataUri here
 }
 
 interface AnalysisResultsProps {
   imagePreview: string | null;
-  clothingItems?: string[]; // Represents categories
-  dominantColors?: string[];
-  style?: string;
-  brand?: string; // Brand of the original item
+  clothingItems?: string[];
+  genderDepartment?: string; // New prop
+  brand?: string; 
   similarItems?: SimilarItem[];
+  // dominantColors and style are removed
 }
 
 export default function AnalysisResults({
   imagePreview,
   clothingItems,
-  dominantColors,
-  style,
+  genderDepartment, // Destructure new prop
   brand,
   similarItems,
 }: AnalysisResultsProps) {
-  if (!clothingItems && !dominantColors && !style && !brand && (!similarItems || similarItems.length === 0)) {
+  if (!clothingItems && !brand && !genderDepartment && (!similarItems || similarItems.length === 0)) {
     return null;
   }
   
   const hasSimilarItems = similarItems && similarItems.length > 0;
-  const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || (dominantColors && dominantColors.length > 0) || !!style || !!brand;
+  const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment;
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
@@ -81,12 +78,25 @@ export default function AnalysisResults({
             </CardContent>
           </Card>
         )}
+        
+        {genderDepartment && (
+          <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Users size={24} className="text-primary" /> Gender Department
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-md font-medium">{genderDepartment}</p>
+            </CardContent>
+          </Card>
+        )}
 
         {brand && (
           <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <Ticket size={24} className="text-primary" /> Brand (Original Item)
+                <Ticket size={24} className="text-primary" /> Brand
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -95,38 +105,8 @@ export default function AnalysisResults({
           </Card>
         )}
 
-        {dominantColors && dominantColors.length > 0 && (
-          <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <PaletteIcon size={24} className="text-primary" /> Dominant Colors
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {dominantColors.map((color, index) => (
-                  <Badge key={index} variant="outline" className="text-sm px-3 py-1.5 flex items-center gap-2 shadow-sm">
-                     <span className="inline-block w-4 h-4 rounded-full border border-black/20" style={{ backgroundColor: color }}></span>
-                    {color}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {style && (
-          <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Tag size={24} className="text-primary" /> Clothing Style
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-md font-medium">{style}</p>
-            </CardContent>
-          </Card>
-        )}
+        {/* Dominant Colors section removed */}
+        {/* Style section removed */}
 
         {hasAnyAnalysis && ( 
             <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
@@ -152,7 +132,7 @@ export default function AnalysisResults({
                               rel="noopener noreferrer"
                               className="block group"
                             >
-                              <p className="font-semibold text-md mb-1.5 text-foreground group-hover:text-accent transition-colors">{item.itemTitle}</p> {/* itemTitle should include brand of similar item */}
+                              <p className="font-semibold text-md mb-1.5 text-foreground group-hover:text-accent transition-colors">{item.itemTitle}</p>
                               <div className="flex items-center gap-1.5 text-sm text-accent/80 group-hover:text-accent transition-colors">
                                 <ExternalLink size={16} />
                                 <span className="underline group-hover:no-underline truncate">
@@ -162,7 +142,7 @@ export default function AnalysisResults({
                             </a>
                           </TooltipTrigger>
                           <TooltipContent side="top" align="start" className="max-w-xs bg-popover text-popover-foreground p-3 rounded-md shadow-lg border">
-                            <p className="text-sm font-semibold mb-1">{item.itemTitle}</p> {/* itemTitle repeated for emphasis in tooltip */}
+                            <p className="text-sm font-semibold mb-1">{item.itemTitle}</p>
                             <p className="text-sm">{item.itemDescription}</p>
                           </TooltipContent>
                         </Tooltip>

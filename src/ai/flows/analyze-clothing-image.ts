@@ -23,9 +23,8 @@ export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInput
 
 const AnalyzeClothingImageOutputSchema = z.object({
   clothingItems: z.array(z.string()).describe('List of clothing items or categories detected in the image (e.g., "T-Shirt", "Jeans", "Sneakers").'),
-  dominantColors: z.array(z.string()).describe('List of dominant colors detected in the clothing.'),
-  style: z.string().describe('The overall style of the clothing (e.g., casual, formal, vintage, sporty).'),
-  brand: z.string().optional().describe('The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you may omit this field or set it to null.'),
+  genderDepartment: z.string().describe("The gender department the clothing items primarily belong to. This must be strictly one of: \"Men's\", \"Women's\", or \"Unisex\"."),
+  brand: z.string().describe('The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you MUST choose one brand from the provided list where the item would fit best. You must always return a brand name; do not return a null or empty response for the brand.'),
 });
 export type AnalyzeClothingImageOutput = z.infer<typeof AnalyzeClothingImageOutputSchema>;
 
@@ -40,9 +39,8 @@ const prompt = ai.definePrompt({
   prompt: `You are an AI fashion assistant. Analyze the clothing in the image and provide the following information:
 
 - A list of the clothing items or categories present in the image (e.g., "T-Shirt", "Dress", "Hoodie").
-- A list of the dominant colors in the clothing.
-- The overall style of the clothing (e.g., casual, formal, vintage, sporty).
-- The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you may omit this field or set it to null.
+- The gender department the clothing items primarily belong to. This must be strictly one of: "Men's", "Women's", or "Unisex".
+- The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you MUST choose one brand from the following list where the item would fit best: Unique Vintage, PUMA, Osprey, NBA, Kappa, Fanatics, Nisolo, Backcountry, Allbirds, FEATURE, MLB, PGA, NHL, Flag & Anthem, MLS, NFL, GOLF le Fleur, Taylor Stitch, The North Face, NIKE, LUISAVIAROMA, FootJoy, The Luxury Closet, Savage X Fenty, Bali Bras, Belstaff, Belstaff UK, Culture Kings US, D1 Milano, Double F, onehanesplace.com, Jansport, Kut from the Kloth, Maidenform, UGG US. You must always return a brand name; do not return a null or empty response for the brand.
 
 Image: {{media url=photoDataUri}}`,
 });
@@ -58,3 +56,4 @@ const analyzeClothingImageFlow = ai.defineFlow(
     return output!;
   }
 );
+
