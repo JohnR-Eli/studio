@@ -16,17 +16,15 @@ function getSummary(analysisResult: HistoryEntry['analysisResult']): string {
   if (analysisResult.clothingItems && analysisResult.clothingItems.length > 0) {
     parts.push(analysisResult.clothingItems.slice(0, 2).join(', '));
   }
-  // analysisResult.style was removed, causing the build error
   if (analysisResult.brand) {
     parts.push(analysisResult.brand);
   }
-  // analysisResult.dominantColors was also removed
-  // If brand and clothingItems are missing, we can check for genderDepartment as a fallback for summary
+  // If brand and clothingItems are missing, check for genderDepartment
   if (parts.length === 0 && analysisResult.genderDepartment) {
     parts.push(analysisResult.genderDepartment);
   }
   if (parts.length === 0) {
-    return "Analyzed Image";
+    return "Analyzed Image"; // Fallback if no other details are available
   }
   return parts.join(' - ');
 }

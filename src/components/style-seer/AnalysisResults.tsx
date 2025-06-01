@@ -25,12 +25,12 @@ export default function AnalysisResults({
   brandIsExplicit,
   similarItems,
 }: AnalysisResultsProps) {
-  if (!clothingItems && !brand && !genderDepartment && (!similarItems || similarItems.length === 0)) {
+  if (!clothingItems?.length && !brand && !genderDepartment && !similarItems?.length) {
     return null;
   }
   
   const hasSimilarItems = similarItems && similarItems.length > 0;
-  const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment;
+  const hasAnyAnalysisDetails = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment;
 
   const brandDisplayTitle = brandIsExplicit ? "Brand (Clearly Identified)" : "Brand (AI Approximation)";
 
@@ -50,75 +50,80 @@ export default function AnalysisResults({
       )}
 
       <div className={`flex flex-col gap-6 ${imagePreview ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
-        {!hasAnyAnalysis && (
+        {!hasAnyAnalysisDetails && !hasSimilarItems && ( // Show this only if there's truly nothing to display from analysis or similar items
              <Card className="shadow-lg rounded-xl border-dashed border-amber-500 bg-amber-500/10">
              <CardHeader>
                <CardTitle className="flex items-center gap-2 text-xl text-amber-700">
-                 <AlertTriangle size={24} /> No Clothing Details Detected
+                 <AlertTriangle size={24} /> No Details Detected
                </CardTitle>
              </CardHeader>
              <CardContent>
-               <p className="text-md text-amber-600">We couldn't identify specific clothing details in this image. Try a different image with clearer apparel.</p>
+               <p className="text-md text-amber-600">We couldn't identify specific clothing details or find similar items for this image. Try a different image.</p>
              </CardContent>
            </Card>
         )}
 
-        {clothingItems && clothingItems.length > 0 && (
-          <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Shirt size={24} className="text-primary" /> Category
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {clothingItems.map((item, index) => (
-                  <Badge key={index} variant="secondary" className="text-sm px-3 py-1.5 shadow-sm">{item}</Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+        {hasAnyAnalysisDetails && (
+          <>
+            {clothingItems && clothingItems.length > 0 && (
+              <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Shirt size={24} className="text-primary" /> Category
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {clothingItems.map((item, index) => (
+                      <Badge key={index} variant="secondary" className="text-sm px-3 py-1.5 shadow-sm">{item}</Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {genderDepartment && (
+              <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Users size={24} className="text-primary" /> Gender Department
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-md font-medium">{genderDepartment}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {brand && (
+              <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Ticket size={24} className="text-primary" /> {brandDisplayTitle}
+                    {!brandIsExplicit && (
+                      <TooltipProvider>
+                        <Tooltip delayDuration={100}>
+                          <TooltipTrigger asChild>
+                            <Info size={16} className="text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs bg-popover text-popover-foreground p-2 rounded-md shadow-lg border">
+                            <p className="text-xs">This brand is an AI approximation as a clear brand was not visible or it was chosen from a best-fit list.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-md font-medium">{brand}</p>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
         
-        {genderDepartment && (
-          <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Users size={24} className="text-primary" /> Gender Department
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-md font-medium">{genderDepartment}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {brand && (
-          <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <Ticket size={24} className="text-primary" /> {brandDisplayTitle}
-                {!brandIsExplicit && (
-                  <TooltipProvider>
-                    <Tooltip delayDuration={100}>
-                      <TooltipTrigger asChild>
-                        <Info size={16} className="text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs bg-popover text-popover-foreground p-2 rounded-md shadow-lg border">
-                        <p className="text-xs">This brand is an AI approximation as a clear brand was not visible or it was chosen from a best-fit list.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-md font-medium">{brand}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {hasAnyAnalysis && ( 
+        {/* Similar Items Card - Renders its structure if there's anything to show at all, content depends on hasSimilarItems */}
+        {(hasAnyAnalysisDetails || hasSimilarItems) && (
             <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
                 <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
