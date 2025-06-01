@@ -19,6 +19,7 @@ type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
 
 type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
   similarItems?: SimilarItem[];
+  // brandIsExplicit is already part of AnalyzeClothingImageOutput, so it's included here.
 };
 
 export type HistoryEntry = {
@@ -58,26 +59,28 @@ export default function StyleSeerPage() {
       clothingItems: [],
       genderDepartment: '',
       brand: undefined,
+      brandIsExplicit: false, // Default to false
       similarItems: []
     };
 
     try {
-      // Run both AI calls in parallel
-      const [clothingAnalysisResult, similarItemsResult] = await Promise.all([
-        analyzeClothingImage({ photoDataUri: dataUri }),
-        findSimilarItems({
-          photoDataUri: dataUri,
-          clothingItem: "clothing item from image", // Generic item for parallel call
-          brand: undefined, // Brand unknown at this stage for parallel call
-        })
-      ]);
+      // Analyze clothing first to get brand and explicitness
+      const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri });
 
       if (clothingAnalysisResult) {
         finalAnalysisState = { ...finalAnalysisState, ...clothingAnalysisResult };
       } else {
-        console.warn("Clothing analysis returned no result, but similar items might still be found.");
+        console.warn("Clothing analysis returned no result. Similar items search may be less accurate.");
       }
 
+      // Now find similar items, passing the brand and explicitness
+      const similarItemsResult = await findSimilarItems({
+        photoDataUri: dataUri,
+        clothingItem: clothingAnalysisResult?.clothingItems?.[0] || "clothing item from image",
+        brand: clothingAnalysisResult?.brand,
+        initialBrandIsExplicit: clothingAnalysisResult?.brandIsExplicit,
+      });
+      
       finalAnalysisState.similarItems = (similarItemsResult?.similarItems || []).map(item => ({
         itemTitle: item.itemTitle,
         itemDescription: item.itemDescription,
@@ -186,6 +189,7 @@ export default function StyleSeerPage() {
                   clothingItems={analysis.clothingItems}
                   genderDepartment={analysis.genderDepartment}
                   brand={analysis.brand}
+                  brandIsExplicit={analysis.brandIsExplicit} // Pass this new prop
                   similarItems={analysis.similarItems}
                 />
                 <div className="mt-10 text-center">

@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users } from 'lucide-react';
+import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info } from 'lucide-react';
 import NextImage from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SimilarItem as GenkitSimilarItemBase } from '@/ai/flows/find-similar-items';
@@ -13,6 +13,7 @@ interface AnalysisResultsProps {
   clothingItems?: string[];
   genderDepartment?: string;
   brand?: string; 
+  brandIsExplicit?: boolean;
   similarItems?: SimilarItem[];
 }
 
@@ -21,6 +22,7 @@ export default function AnalysisResults({
   clothingItems,
   genderDepartment,
   brand,
+  brandIsExplicit,
   similarItems,
 }: AnalysisResultsProps) {
   if (!clothingItems && !brand && !genderDepartment && (!similarItems || similarItems.length === 0)) {
@@ -29,6 +31,8 @@ export default function AnalysisResults({
   
   const hasSimilarItems = similarItems && similarItems.length > 0;
   const hasAnyAnalysis = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment;
+
+  const brandDisplayTitle = brandIsExplicit ? "Brand (Clearly Identified)" : "Brand (AI Approximation)";
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
@@ -93,7 +97,19 @@ export default function AnalysisResults({
           <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-xl">
-                <Ticket size={24} className="text-primary" /> Brand (AI Approximation)
+                <Ticket size={24} className="text-primary" /> {brandDisplayTitle}
+                {!brandIsExplicit && (
+                  <TooltipProvider>
+                    <Tooltip delayDuration={100}>
+                      <TooltipTrigger asChild>
+                        <Info size={16} className="text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs bg-popover text-popover-foreground p-2 rounded-md shadow-lg border">
+                        <p className="text-xs">This brand is an AI approximation as a clear brand was not visible or it was chosen from a best-fit list.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>

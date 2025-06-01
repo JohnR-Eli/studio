@@ -19,6 +19,7 @@ const FindSimilarItemsInputSchema = z.object({
     ),
   clothingItem: z.string().describe('The type or category of clothing item (e.g., dress, shirt, pants, or a general placeholder like "clothing item from image").'),
   brand: z.string().optional().describe('The brand of the original clothing item, if known. This is highly useful for finding accurate matches or alternatives.'),
+  initialBrandIsExplicit: z.boolean().optional().describe('Indicates if the initial brand identification (passed in the "brand" field) was from clear visual cues on the original item.'),
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
@@ -59,16 +60,21 @@ Reference Image: {{media url=photoDataUri}}
 
 Clothing Item Category: {{{clothingItem}}}
 {{#if brand}}Original Brand (if known): {{{brand}}}{{/if}}
-
-**Primary Brand Focus:**
-Your search for similar items **MUST strongly prioritize** brands from the following exclusive list:
-${preferredBrandsList.map(b => `- ${b}`).join('\n')}
+{{#if initialBrandIsExplicit}}Original Brand was Explicitly Seen: Yes{{/if}}
 
 **Search Strategy:**
-1.  **Original Brand Check:** If the Original Brand is known (from the 'Original Brand (if known)' field above) AND it is part of the exclusive list, you should make every effort to find items from this specific original brand first, from the exclusive list.
-2.  **Preferred List Search:** If the Original Brand is known but NOT part of the exclusive list above, OR if the Original Brand is NOT known, you MUST primarily search for matches within the exclusive list of brands provided above.
-3.  **Resorting to Other Brands (Only if Necessary):** Only if you have exhausted all reasonable options and cannot find any suitable similar items from the exclusive list of brands, you may then (and only then) consider items from:
-    a. The original brand (if it was known but not on the exclusive list).
+
+1.  **Explicit Original Brand First (First 2 Items):**
+    If an 'Original Brand' is provided AND 'Original Brand was Explicitly Seen' is 'Yes', your **first two** recommendations **MUST** be items from this exact 'Original Brand'. Try to find these from the brand's official site or reputable retailers.
+
+2.  **Preferred Brand Focus (Remaining/All Items):**
+    After attempting to fulfill step 1 (if applicable), or if step 1 was not applicable (no explicit original brand), you MUST find the remaining recommendations (to reach a total of at least 5) by **strongly prioritizing** brands from the following exclusive list:
+    ${preferredBrandsList.map(b => `- ${b}`).join('\n')}
+    If the 'Original Brand' (from input) is on this exclusive list, you should still prioritize it within this step if you haven't already recommended two items from it.
+
+3.  **Resorting to Other Brands (Only if Necessary):**
+    Only if you have exhausted all reasonable options and cannot find at least 5 suitable items from the strategies above (explicit original brand and then the preferred list), you may then (and only then) consider items from:
+    a. The 'Original Brand' (if it was known but not on the exclusive list and not already covered by step 1).
     b. Other brands that are visually very similar and of comparable style/quality.
 
 Prioritize items that are visually very similar to the one in the reference image. When selecting items, try to choose products that are likely to be currently in stock and available for purchase (e.g., prefer items from current collections, and be cautious with items that appear to be on clearance or from very old listings, as they are more likely to be out of stock).
@@ -97,4 +103,3 @@ const findSimilarItemsFlow = ai.defineFlow(
     return output;
   }
 );
-
