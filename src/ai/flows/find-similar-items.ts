@@ -30,7 +30,7 @@ const SimilarItemSchema = z.object({
 export type SimilarItem = z.infer<typeof SimilarItemSchema>;
 
 const FindSimilarItemsOutputSchema = z.object({
-  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links. Aim for around 3 items.'),
+  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links. Aim for at least 5 items suitable for adults (early 20s and older).'),
 });
 export type FindSimilarItemsOutput = z.infer<typeof FindSimilarItemsOutputSchema>;
 
@@ -52,7 +52,8 @@ const similarItemsTextPrompt = ai.definePrompt({
   input: {schema: FindSimilarItemsInputSchema},
   output: {schema: FindSimilarItemsOutputSchema },
   prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that closely match a reference image and description.
-Analyze the provided reference image and the clothing description. Your goal is to find around 3 similar items from online vendors.
+The target audience for these recommendations is individuals in their early 20s or older. **Ensure all recommended items are suitable for adults and explicitly exclude any child-specific items or items primarily marketed towards children/teens.**
+Analyze the provided reference image and the clothing description. Your goal is to find at least 5 similar items from online vendors.
 
 Reference Image: {{media url=photoDataUri}}
 
@@ -77,7 +78,7 @@ For each similar item you suggest, provide:
 2.  'itemDescription': A more detailed description (2-3 sentences) highlighting key features, materials, or why it's a strong match to the original.
 3.  'vendorLink': A direct URL to the product page for an item you believe to be currently available on an online vendor site if a specific match is found. If an exact product page for an in-stock item isn't clear, provide a URL to a search results page on the vendor's site for the item (e.g., "https://vendor.com/search?q=BrandName+Red+Dress") or a relevant category page that is likely to contain similar, available items. Ensure this is a valid URL.
 
-Return a JSON object containing a list of 'similarItems'. Ensure you provide around 3 distinct similar items if suitable matches can be found. If you truly cannot find at least this many, return as many as you can find. If no items are found, return an empty list for 'similarItems'.`,
+Return a JSON object containing a list of 'similarItems'. Ensure you provide at least 5 distinct similar items suitable for an adult audience if suitable matches can be found. If you truly cannot find at least this many, return as many as you can find. If no items are found, return an empty list for 'similarItems'.`,
 });
 
 const findSimilarItemsFlow = ai.defineFlow(
