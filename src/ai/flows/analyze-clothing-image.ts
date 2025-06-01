@@ -29,7 +29,7 @@ const AnalyzeClothingImageOutputSchema = z.object({
 });
 export type AnalyzeClothingImageOutput = z.infer<typeof AnalyzeClothingImageOutputSchema>;
 
-export async function analyzeClothingImage(input: AnalyzeClothingImageInput): Promise<AnalyzeClothingImageOutput> {
+export async function analyzeClothingImage(input: AnalyzeClothingImageInput): Promise<AnalyzeClothingImageOutput | null> {
   return analyzeClothingImageFlow(input);
 }
 
@@ -53,8 +53,17 @@ const analyzeClothingImageFlow = ai.defineFlow(
     inputSchema: AnalyzeClothingImageInputSchema,
     outputSchema: AnalyzeClothingImageOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  async (input): Promise<AnalyzeClothingImageOutput | null> => {
+    try {
+      const result = await prompt(input);
+      if (result.output) {
+        return result.output;
+      }
+      console.error("analyzeClothingImageFlow: Prompt did not return a valid output.", result);
+      return null;
+    } catch (e) {
+      console.error("Error in analyzeClothingImageFlow:", e);
+      return null;
+    }
   }
 );

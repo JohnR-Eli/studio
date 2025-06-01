@@ -30,6 +30,7 @@ export type HistoryEntry = {
 };
 
 const MAX_HISTORY_ITEMS = 10;
+const LOCAL_STORAGE_KEY = 'fittedToolSearchHistory';
 
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -38,6 +39,39 @@ export default function StyleSeerPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState("Analyzing image...");
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
+
+  useEffect(() => {
+    try {
+      const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedHistory) {
+        const parsedHistory = JSON.parse(storedHistory);
+        // Ensure parsedHistory is an array before setting state
+        if (Array.isArray(parsedHistory)) {
+          setSearchHistory(parsedHistory);
+        } else {
+          console.warn("Invalid history format in localStorage:", parsedHistory);
+          localStorage.removeItem(LOCAL_STORAGE_KEY); // Clear invalid entry
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load search history from localStorage:", e);
+      // Optionally clear localStorage if parsing fails due to corruption
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (searchHistory.length > 0) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(searchHistory));
+      } else if (localStorage.getItem(LOCAL_STORAGE_KEY)) { // Only remove if it exists
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.error("Failed to save search history to localStorage:", e);
+    }
+  }, [searchHistory]);
+
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -59,12 +93,11 @@ export default function StyleSeerPage() {
       clothingItems: [],
       genderDepartment: '',
       brand: undefined,
-      brandIsExplicit: false, // Default to false
+      brandIsExplicit: false,
       similarItems: []
     };
 
     try {
-      // Analyze clothing first to get brand and explicitness
       const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri });
 
       if (clothingAnalysisResult) {
@@ -73,7 +106,6 @@ export default function StyleSeerPage() {
         console.warn("Clothing analysis returned no result. Similar items search may be less accurate.");
       }
 
-      // Now find similar items, passing the brand and explicitness
       const similarItemsResult = await findSimilarItems({
         photoDataUri: dataUri,
         clothingItem: clothingAnalysisResult?.clothingItems?.[0] || "clothing item from image",
@@ -92,18 +124,18 @@ export default function StyleSeerPage() {
       if (finalAnalysisState.clothingItems?.length || finalAnalysisState.brand || finalAnalysisState.genderDepartment || finalAnalysisState.similarItems?.length) {
         setSearchHistory(prevHistory => {
           const newEntry: HistoryEntry = {
-            id: new Date().toISOString(),
+            id: new Date().toISOString() + Math.random(), // Add random ensure uniqueness for keys
             timestamp: new Date(),
             imageUri: dataUri,
             analysisResult: finalAnalysisState,
           };
-          const updatedHistory = [newEntry, ...prevHistory];
+          const updatedHistory = [newEntry, ...prevHistory.filter(item => item.id !== newEntry.id)];
           return updatedHistory.slice(0, MAX_HISTORY_ITEMS);
         });
       }
 
       if (!clothingAnalysisResult && (!similarItemsResult || similarItemsResult.similarItems.length === 0)) {
-        setError("Failed to analyze image or find similar items. The AI could not retrieve details.");
+        setError("Failed to analyze image or find similar items. The AI could not retrieve details for this image.");
         setAnalysis(null);
       } else {
         setError(null);
@@ -111,11 +143,16 @@ export default function StyleSeerPage() {
 
     } catch (e: any) {
       console.error("Analysis Error:", e);
-      const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during image processing.";
-      if (errorMessage.includes("NOT_FOUND")) {
-        setError(`Model not found. Please check API key and project settings. Original error: ${errorMessage}`);
+      const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred during image processing.";
+      
+      if (errorMessage.toLowerCase().includes("model") && errorMessage.toLowerCase().includes("not found")) {
+        setError(`AI Model Not Found: The AI model (e.g., 'gemini-1.0-pro-vision-latest') configured for analysis could not be accessed. Please verify your API key, Google Cloud project settings, and ensure the 'Generative Language API' or 'Vertex AI API' is enabled with billing. Original error: ${errorMessage}`);
+      } else if (errorMessage.toLowerCase().includes("safety") || errorMessage.toLowerCase().includes("blocked")) {
+        setError(`Content Blocked: The AI model blocked the response, likely due to safety settings or the nature of the image content. Please try a different image. Original error: ${errorMessage}`);
+      } else if (errorMessage.toLowerCase().includes("api key") || errorMessage.toLowerCase().includes("permission denied")) {
+         setError(`API Key or Permissions Issue: There might be a problem with your API key or its permissions. Please check your credentials and project configuration. Original error: ${errorMessage}`);
       } else {
-        setError(`An error occurred: ${errorMessage}. Please try again or use a different image.`);
+        setError(`An error occurred during processing: ${errorMessage}. Please try again or use a different image.`);
       }
       setAnalysis(null);
     } finally {
@@ -162,10 +199,7 @@ export default function StyleSeerPage() {
 
         <main className="flex-1 flex flex-col overflow-y-auto">
           <div className="container mx-auto px-4 py-8 md:py-12 flex-grow">
-            <div className="text-center mb-8 md:mb-12">
-              {/* Flavor text removed as per request */}
-            </div>
-
+            
             <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
 
             {isLoading && (
@@ -189,7 +223,7 @@ export default function StyleSeerPage() {
                   clothingItems={analysis.clothingItems}
                   genderDepartment={analysis.genderDepartment}
                   brand={analysis.brand}
-                  brandIsExplicit={analysis.brandIsExplicit} // Pass this new prop
+                  brandIsExplicit={analysis.brandIsExplicit}
                   similarItems={analysis.similarItems}
                 />
                 <div className="mt-10 text-center">
