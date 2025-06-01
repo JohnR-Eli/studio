@@ -19,7 +19,6 @@ const FindSimilarItemsInputSchema = z.object({
     ),
   clothingItem: z.string().describe('The type or category of clothing item (e.g., dress, shirt, pants, or a general placeholder like "clothing item from image").'),
   brand: z.string().optional().describe('The brand of the original clothing item, if known. This is highly useful for finding accurate matches or alternatives.'),
-  // dominantColors and style are now fully optional and not primary inputs from analysis
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
@@ -39,20 +38,39 @@ export async function findSimilarItems(input: FindSimilarItemsInput): Promise<Fi
   return findSimilarItemsFlow(input);
 }
 
+const preferredBrandsList = [
+  "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
+  "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
+  "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
+  "LUISAVIAROMA", "FootJoy", "The Luxury Closet", "Savage X Fenty", "Bali Bras", 
+  "Belstaff", "Belstaff UK", "Culture Kings US", "D1 Milano", "Double F", 
+  "onehanesplace.com", "Jansport", "Kut from the Kloth", "Maidenform", "UGG US"
+];
+
 const similarItemsTextPrompt = ai.definePrompt({
   name: 'similarItemsTextPrompt',
   input: {schema: FindSimilarItemsInputSchema},
   output: {schema: FindSimilarItemsOutputSchema },
   prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that closely match a reference image and description.
 Analyze the provided reference image and the clothing description. Your goal is to find around 3 similar items from online vendors.
-Prioritize items that are visually very similar to the one in the reference image. When selecting items, try to choose products that are likely to be currently in stock and available for purchase (e.g., prefer items from current collections, and be cautious with items that appear to be on clearance or from very old listings, as they are more likely to be out of stock).
 
 Reference Image: {{media url=photoDataUri}}
 
 Clothing Item Category: {{{clothingItem}}}
 {{#if brand}}Original Brand (if known): {{{brand}}}{{/if}}
 
-If an original brand is provided (see "Original Brand (if known)" above) or discernible from the image, **strongly prioritize** finding items from that same brand first. If items from the original brand are not available or suitable, then look for brands of very similar style and quality. If the original brand is not clear or specified, focus on visual similarity and the clothing item category to find suitable alternatives.
+**Primary Brand Focus:**
+Your search for similar items **MUST strongly prioritize** brands from the following exclusive list:
+${preferredBrandsList.map(b => `- ${b}`).join('\n')}
+
+**Search Strategy:**
+1.  **Original Brand Check:** If the Original Brand is known (from the 'Original Brand (if known)' field above) AND it is part of the exclusive list, you should make every effort to find items from this specific original brand first, from the exclusive list.
+2.  **Preferred List Search:** If the Original Brand is known but NOT part of the exclusive list above, OR if the Original Brand is NOT known, you MUST primarily search for matches within the exclusive list of brands provided above.
+3.  **Resorting to Other Brands (Only if Necessary):** Only if you have exhausted all reasonable options and cannot find any suitable similar items from the exclusive list of brands, you may then (and only then) consider items from:
+    a. The original brand (if it was known but not on the exclusive list).
+    b. Other brands that are visually very similar and of comparable style/quality.
+
+Prioritize items that are visually very similar to the one in the reference image. When selecting items, try to choose products that are likely to be currently in stock and available for purchase (e.g., prefer items from current collections, and be cautious with items that appear to be on clearance or from very old listings, as they are more likely to be out of stock).
 
 For each similar item you suggest, provide:
 1.  'itemTitle': A concise title for the clothing item. Crucially, if you can identify the brand of this *similar item*, include it in the title (e.g., "BrandName Casual Linen Shirt", "DesignerX Floral Maxi Dress").
@@ -78,3 +96,4 @@ const findSimilarItemsFlow = ai.defineFlow(
     return output;
   }
 );
+
