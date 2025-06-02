@@ -30,7 +30,12 @@ const AnalyzeClothingImageOutputSchema = z.object({
 export type AnalyzeClothingImageOutput = z.infer<typeof AnalyzeClothingImageOutputSchema>;
 
 export async function analyzeClothingImage(input: AnalyzeClothingImageInput): Promise<AnalyzeClothingImageOutput | null> {
-  return analyzeClothingImageFlow(input);
+  try {
+    return await analyzeClothingImageFlow(input);
+  } catch (e) {
+    console.error("Error in analyzeClothingImage wrapper calling flow:", e);
+    return null;
+  }
 }
 
 const prompt = ai.definePrompt({
@@ -53,17 +58,20 @@ const analyzeClothingImageFlow = ai.defineFlow(
     inputSchema: AnalyzeClothingImageInputSchema,
     outputSchema: AnalyzeClothingImageOutputSchema,
   },
-  async (input): Promise<AnalyzeClothingImageOutput | null> => {
+  async (input): Promise<AnalyzeClothingImageOutput> => {
     try {
       const result = await prompt(input);
       if (result.output) {
         return result.output;
       }
-      console.error("analyzeClothingImageFlow: Prompt did not return a valid output.", result);
-      return null;
-    } catch (e) {
-      console.error("Error in analyzeClothingImageFlow:", e);
-      return null;
+      const errorMessage = "analyzeClothingImageFlow: Prompt did not return a valid output.";
+      console.error(errorMessage, result);
+      throw new Error(errorMessage);
+    } catch (e: any) {
+      const errorMessage = `Error in analyzeClothingImageFlow: ${e.message || String(e)}`;
+      console.error(errorMessage, e);
+      throw new Error(errorMessage);
     }
   }
 );
+
