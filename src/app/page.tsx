@@ -14,6 +14,8 @@ import { AlertCircle, RotateCcw, History as HistoryIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
 
@@ -24,12 +26,13 @@ type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
 export type HistoryEntry = {
   id: string;
   timestamp: Date;
-  imageUri?: string; // Made optional
+  imageUri?: string; 
   analysisResult: AnalysisState;
 };
 
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_KEY = 'fittedToolSearchHistory';
+const HISTORY_PREFERENCE_KEY = 'fittedToolSaveHistoryPreference';
 
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -40,47 +43,92 @@ export default function StyleSeerPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState("Analyzing image...");
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
+  const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
 
+  // Effect 1: Load preference and initial history on mount
+  useEffect(() => {
+    let initialPreference = false;
+    try {
+      const storedPreference = localStorage.getItem(HISTORY_PREFERENCE_KEY);
+      initialPreference = storedPreference === 'true';
+      setSaveHistoryPreference(initialPreference); 
+    } catch (e) {
+      console.error("Failed to load history preference from localStorage:", e);
+      localStorage.removeItem(HISTORY_PREFERENCE_KEY);
+    }
+
+    if (initialPreference) {
+      try {
+        const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedHistory) {
+          const parsedHistory: Omit<HistoryEntry, 'imageUri'>[] = JSON.parse(storedHistory);
+          if (Array.isArray(parsedHistory)) {
+            setSearchHistory(parsedHistory.map(item => ({ ...item, imageUri: undefined })));
+          } else {
+            console.warn("Invalid history format in localStorage, clearing:", parsedHistory);
+            localStorage.removeItem(LOCAL_STORAGE_KEY);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load search history from localStorage:", e);
+        localStorage.removeItem(LOCAL_STORAGE_KEY); 
+      }
+    } else {
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      setSearchHistory([]); 
+    }
+  }, []); 
+
+  // Effect 2: Handle changes to saveHistoryPreference (user toggling checkbox)
   useEffect(() => {
     try {
-      const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (storedHistory) {
-        // Entries from localStorage will not have imageUri
-        const parsedHistory: Omit<HistoryEntry, 'imageUri'>[] = JSON.parse(storedHistory);
-        if (Array.isArray(parsedHistory)) {
-          setSearchHistory(parsedHistory.map(item => ({...item, imageUri: undefined })));
-        } else {
-          console.warn("Invalid history format in localStorage:", parsedHistory);
-          localStorage.removeItem(LOCAL_STORAGE_KEY);
+      localStorage.setItem(HISTORY_PREFERENCE_KEY, String(saveHistoryPreference));
+      if (!saveHistoryPreference) {
+        localStorage.removeItem(LOCAL_STORAGE_KEY);
+        // Clear in-memory history as well if user unchecks, to reflect immediate change
+        // Keep this line if the expectation is that unchecking also clears current session view of history.
+        // Comment out or remove if unchecking should only affect next session's load & current session's save.
+        // For the request "clear the cache for history data whenever the app is restarted UNLESS the user ticks",
+        // clearing in-memory history here when unchecking is consistent.
+        setSearchHistory([]); 
+      } else {
+        // If user checks "save for next session" and there's current in-memory history, save it
+        if (searchHistory.length > 0) {
+           const storableHistory = searchHistory.map(entry => {
+              const { imageUri, ...restOfEntry } = entry;
+              return restOfEntry;
+            });
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(storableHistory));
         }
       }
     } catch (e) {
-      console.error("Failed to load search history from localStorage:", e);
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      console.error("Failed to update history preference or related data in localStorage:", e);
     }
-  }, []);
+  }, [saveHistoryPreference]);
 
+
+  // Effect 3: Save search history data when it changes, but only if preference is to save
   useEffect(() => {
-    try {
-      if (searchHistory.length > 0) {
-        // Create a version of history for localStorage that omits imageUri
-        const storableHistory = searchHistory.map(entry => {
-          const { imageUri, ...restOfEntry } = entry; // Destructure to remove imageUri for storage
-          return restOfEntry;
-        });
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(storableHistory));
-      } else if (localStorage.getItem(LOCAL_STORAGE_KEY)) {
-        localStorage.removeItem(LOCAL_STORAGE_KEY);
-      }
-    } catch (e: any) {
-      console.error("Failed to save search history to localStorage:", e);
-      if (e && e.name === 'QuotaExceededError') {
-        console.warn("LocalStorage quota exceeded. Search history for this session might not be fully saved or previous history might be too large. Large image data is not saved to local storage to prevent this.");
-        // Optionally, could attempt to prune the storableHistory further or clear localStorage
-        // For now, we simply don't save if it's too large after stripping imageURIs (which is unlikely but possible with huge analysis results)
+    if (saveHistoryPreference) {
+      try {
+        if (searchHistory.length > 0) {
+          const storableHistory = searchHistory.map(entry => {
+            const { imageUri, ...restOfEntry } = entry;
+            return restOfEntry;
+          });
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(storableHistory));
+        } else {
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+        }
+      } catch (e: any) {
+        console.error("Failed to save search history to localStorage:", e);
+        if (e && e.name === 'QuotaExceededError') {
+          console.warn("LocalStorage quota exceeded. Search history for this session might not be fully saved.");
+        }
       }
     }
-  }, [searchHistory]);
+  }, [searchHistory, saveHistoryPreference]);
+
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -118,7 +166,7 @@ export default function StyleSeerPage() {
             const newEntry: HistoryEntry = {
                 id: new Date().toISOString() + Math.random(),
                 timestamp: new Date(),
-                imageUri: dataUri, // Keep imageUri for in-memory state (current session)
+                imageUri: dataUri, 
                 analysisResult: historyAnalysisResult,
             };
             const updatedHistory = [newEntry, ...prevHistory.filter(item => item.id !== newEntry.id)];
@@ -200,10 +248,10 @@ export default function StyleSeerPage() {
   }, []);
 
   const handleSelectHistoryItem = useCallback((entry: HistoryEntry) => {
-    setImageUri(entry.imageUri || null); // Use imageUri if available (current session), else null
+    setImageUri(entry.imageUri || null); 
     setAnalysis({
         ...entry.analysisResult,
-        similarItems: []
+        similarItems: [] 
     });
     setIsLoading(false);
     setIsSpecificItemsLoading(false);
@@ -211,17 +259,34 @@ export default function StyleSeerPage() {
     setError(null);
   }, []);
 
+  const handleSaveHistoryPreferenceChange = (checked: boolean | 'indeterminate') => {
+    if (typeof checked === 'boolean') {
+      setSaveHistoryPreference(checked);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-72 md:w-80 lg:w-96 flex-shrink-0 border-r border-border/60 bg-card p-4 hidden md:flex flex-col overflow-y-auto">
           <Card className="flex-1 flex flex-col overflow-hidden shadow-md">
-            <CardHeader className="pb-3 pt-4 px-4">
+            <CardHeader className="pb-3 pt-4 px-4 flex flex-row justify-between items-center">
               <CardTitle className="flex items-center text-xl gap-2">
                 <HistoryIcon size={22} className="text-primary" />
                 Search History
               </CardTitle>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="save-history-checkbox"
+                  checked={saveHistoryPreference}
+                  onCheckedChange={handleSaveHistoryPreferenceChange}
+                  aria-label="Save search history for next session"
+                />
+                <Label htmlFor="save-history-checkbox" className="text-xs font-normal text-muted-foreground cursor-pointer select-none">
+                  Save for next session
+                </Label>
+              </div>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-y-auto">
               <ScrollArea className="h-full">
@@ -285,6 +350,4 @@ export default function StyleSeerPage() {
     </div>
   );
 }
-    
-
     
