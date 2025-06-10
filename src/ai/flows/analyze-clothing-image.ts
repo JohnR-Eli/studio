@@ -21,17 +21,28 @@ const AnalyzeClothingImageInputSchema = z.object({
 });
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
 
+const preferredBrandsForStyleApproximation = [
+  "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
+  "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
+  "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
+  "LUISAVIAROMA", "FootJoy", "The Luxury Closet", "Savage X Fenty", "Bali Bras", 
+  "Belstaff", "Belstaff UK", "Culture Kings US", "D1 Milano", "Double F", 
+  "onehanesplace.com", "Jansport", "Kut from the Kloth", "Maidenform", "UGG US"
+];
+
 const AnalyzeClothingImageOutputSchema = z.object({
   clothingItems: z.array(z.string()).describe('List of clothing items or categories detected in the image (e.g., "T-Shirt", "Jeans", "Sneakers").'),
   genderDepartment: z.string().describe("The gender department the clothing items primarily belong to. This must be strictly one of: \"Men's\", \"Women's\", or \"Unisex\"."),
   brand: z.string().describe('The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you MUST choose one brand from the provided list where the item would fit best. You must always return a brand name; do not return a null or empty response for the brand.'),
   brandIsExplicit: z.boolean().describe('True if the brand was explicitly identified from clear visual cues (e.g., a visible logo or tag), false if the brand was an approximation or chosen from the fallback list.'),
+  alternativeBrands: z.array(z.string()).describe('A list of up to 3 brands from the preferred list that offer clothing items stylistically similar to the one(s) in the image. These are approximations based on style. Do not include the primary identified brand in this list unless no other distinct alternatives from the preferred list can be found.'),
 });
 export type AnalyzeClothingImageOutput = z.infer<typeof AnalyzeClothingImageOutputSchema>;
 
 export async function analyzeClothingImage(input: AnalyzeClothingImageInput): Promise<AnalyzeClothingImageOutput | null> {
   try {
-    return await analyzeClothingImageFlow(input);
+    const result = await analyzeClothingImageFlow(input);
+    return result;
   } catch (e) {
     console.error("Error in analyzeClothingImage wrapper calling flow:", e);
     return null;
@@ -46,8 +57,9 @@ const prompt = ai.definePrompt({
 
 - A list of the clothing items or categories present in the image (e.g., "T-Shirt", "Dress", "Hoodie").
 - The gender department the clothing items primarily belong to. This must be strictly one of: "Men's", "Women's", or "Unisex".
-- The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you MUST choose one brand from the following list where the item would fit best: Unique Vintage, PUMA, Osprey, NBA, Kappa, Fanatics, Nisolo, Backcountry, Allbirds, FEATURE, MLB, PGA, NHL, Flag & Anthem, MLS, NFL, GOLF le Fleur, Taylor Stitch, The North Face, NIKE, LUISAVIAROMA, FootJoy, The Luxury Closet, Savage X Fenty, Bali Bras, Belstaff, Belstaff UK, Culture Kings US, D1 Milano, Double F, onehanesplace.com, Jansport, Kut from the Kloth, Maidenform, UGG US. You must always return a brand name; do not return a null or empty response for the brand.
+- The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you MUST choose one brand from the following list where the item would fit best: ${preferredBrandsForStyleApproximation.join(', ')}. You must always return a brand name; do not return a null or empty response for the brand.
 - 'brandIsExplicit': Set this to true if the brand was identified from a clear, visible logo or tag on the item itself. Set it to false if the brand identification is an approximation based on style, if it was chosen from the fallback list because no brand was clear, or if you are otherwise not highly confident it's the exact brand shown.
+- 'alternativeBrands': Suggest up to 3 alternative brands from the *same preferred list* above: (${preferredBrandsForStyleApproximation.join(', ')}). These alternative brands should be known for a style that is similar to the item(s) in the image. This list should offer stylistic approximations. Do not include the primary identified brand in this 'alternativeBrands' list unless you can find no other distinct alternatives from the preferred list. Prioritize diversity in these suggestions if multiple style matches exist in the preferred list. If no suitable alternative brands from the list can be determined, return an empty array for 'alternativeBrands'.
 
 Image: {{media url=photoDataUri}}`,
 });
@@ -70,8 +82,11 @@ const analyzeClothingImageFlow = ai.defineFlow(
     } catch (e: any) {
       const errorMessage = `Error in analyzeClothingImageFlow: ${e.message || String(e)}`;
       console.error(errorMessage, e);
-      throw new Error(errorMessage);
+      // Re-throw the error to be caught by the calling function if needed.
+      // This ensures the flow itself signals failure according to its schema.
+      throw new Error(errorMessage); 
     }
   }
 );
 
+    

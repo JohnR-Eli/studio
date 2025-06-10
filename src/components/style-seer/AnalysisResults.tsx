@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info } from 'lucide-react';
+import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info, Sparkles } from 'lucide-react';
 import NextImage from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SimilarItem as GenkitSimilarItemBase } from '@/ai/flows/find-similar-items';
@@ -14,6 +14,7 @@ interface AnalysisResultsProps {
   genderDepartment?: string;
   brand?: string; 
   brandIsExplicit?: boolean;
+  alternativeBrands?: string[];
   similarItems?: SimilarItem[];
 }
 
@@ -23,16 +24,18 @@ export default function AnalysisResults({
   genderDepartment,
   brand,
   brandIsExplicit,
+  alternativeBrands,
   similarItems,
 }: AnalysisResultsProps) {
-  if (!clothingItems?.length && !brand && !genderDepartment && !similarItems?.length) {
+  if (!clothingItems?.length && !brand && !genderDepartment && !similarItems?.length && !alternativeBrands?.length) {
     return null;
   }
   
   const hasSimilarItems = similarItems && similarItems.length > 0;
-  const hasAnyAnalysisDetails = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment;
+  const hasAnyAnalysisDetails = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment || (alternativeBrands && alternativeBrands.length > 0) ;
 
   const brandDisplayTitle = brandIsExplicit ? "Brand (Clearly Identified)" : "Brand (AI Approximation)";
+  const hasAlternativeBrands = alternativeBrands && alternativeBrands.length > 0;
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
@@ -50,7 +53,7 @@ export default function AnalysisResults({
       )}
 
       <div className={`flex flex-col gap-6 ${imagePreview ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
-        {!hasAnyAnalysisDetails && !hasSimilarItems && ( // Show this only if there's truly nothing to display from analysis or similar items
+        {!hasAnyAnalysisDetails && !hasSimilarItems && ( 
              <Card className="shadow-lg rounded-xl border-dashed border-amber-500 bg-amber-500/10">
              <CardHeader>
                <CardTitle className="flex items-center gap-2 text-xl text-amber-700">
@@ -119,10 +122,27 @@ export default function AnalysisResults({
                 </CardContent>
               </Card>
             )}
+
+            {hasAlternativeBrands && (
+              <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <Sparkles size={24} className="text-primary" /> Alternative Brands (Similar Style)
+                  </CardTitle>
+                  <CardDescription>Brands from our preferred list known for a similar aesthetic.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {alternativeBrands?.map((altBrand, index) => (
+                      <Badge key={index} variant="outline" className="text-sm px-3 py-1.5 shadow-sm">{altBrand}</Badge>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </>
         )}
         
-        {/* Similar Items Card - Renders its structure if there's anything to show at all, content depends on hasSimilarItems */}
         {(hasAnyAnalysisDetails || hasSimilarItems) && (
             <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
                 <CardHeader>
@@ -173,3 +193,5 @@ export default function AnalysisResults({
     </div>
   );
 }
+
+    

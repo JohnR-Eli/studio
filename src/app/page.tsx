@@ -19,7 +19,8 @@ type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
 
 type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
   similarItems?: SimilarItem[];
-  // brandIsExplicit is already part of AnalyzeClothingImageOutput, so it's included here.
+  alternativeBrands?: string[]; // Added this
+  // brandIsExplicit is already part of AnalyzeClothingImageOutput
 };
 
 export type HistoryEntry = {
@@ -45,17 +46,15 @@ export default function StyleSeerPage() {
       const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (storedHistory) {
         const parsedHistory = JSON.parse(storedHistory);
-        // Ensure parsedHistory is an array before setting state
         if (Array.isArray(parsedHistory)) {
           setSearchHistory(parsedHistory);
         } else {
           console.warn("Invalid history format in localStorage:", parsedHistory);
-          localStorage.removeItem(LOCAL_STORAGE_KEY); // Clear invalid entry
+          localStorage.removeItem(LOCAL_STORAGE_KEY); 
         }
       }
     } catch (e) {
       console.error("Failed to load search history from localStorage:", e);
-      // Optionally clear localStorage if parsing fails due to corruption
       localStorage.removeItem(LOCAL_STORAGE_KEY);
     }
   }, []);
@@ -64,7 +63,7 @@ export default function StyleSeerPage() {
     try {
       if (searchHistory.length > 0) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(searchHistory));
-      } else if (localStorage.getItem(LOCAL_STORAGE_KEY)) { // Only remove if it exists
+      } else if (localStorage.getItem(LOCAL_STORAGE_KEY)) { 
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
     } catch (e) {
@@ -94,18 +93,27 @@ export default function StyleSeerPage() {
       genderDepartment: '',
       brand: undefined,
       brandIsExplicit: false,
+      alternativeBrands: [],
       similarItems: []
     };
 
     try {
+      // Step 1: Analyze clothing image
       const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri });
 
       if (clothingAnalysisResult) {
-        finalAnalysisState = { ...finalAnalysisState, ...clothingAnalysisResult };
+        finalAnalysisState = { 
+          ...finalAnalysisState, 
+          ...clothingAnalysisResult,
+          // Ensure alternativeBrands is initialized if not present, though schema should provide it
+          alternativeBrands: clothingAnalysisResult.alternativeBrands || [], 
+        };
       } else {
         console.warn("Clothing analysis returned no result. Similar items search may be less accurate.");
       }
 
+      // Step 2: Find similar items (can run in parallel if independent or use results from step 1)
+      // For now, it depends on clothingAnalysisResult, so it runs sequentially.
       const similarItemsResult = await findSimilarItems({
         photoDataUri: dataUri,
         clothingItem: clothingAnalysisResult?.clothingItems?.[0] || "clothing item from image",
@@ -121,10 +129,10 @@ export default function StyleSeerPage() {
       
       setAnalysis(finalAnalysisState);
 
-      if (finalAnalysisState.clothingItems?.length || finalAnalysisState.brand || finalAnalysisState.genderDepartment || finalAnalysisState.similarItems?.length) {
+      if (finalAnalysisState.clothingItems?.length || finalAnalysisState.brand || finalAnalysisState.genderDepartment || finalAnalysisState.similarItems?.length || finalAnalysisState.alternativeBrands?.length) {
         setSearchHistory(prevHistory => {
           const newEntry: HistoryEntry = {
-            id: new Date().toISOString() + Math.random(), // Add random ensure uniqueness for keys
+            id: new Date().toISOString() + Math.random(),
             timestamp: new Date(),
             imageUri: dataUri,
             analysisResult: finalAnalysisState,
@@ -145,8 +153,8 @@ export default function StyleSeerPage() {
       console.error("Analysis Error:", e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred during image processing.";
       
-      if (errorMessage.toLowerCase().includes("model") && errorMessage.toLowerCase().includes("not found")) {
-        setError(`AI Model Not Found: The AI model (e.g., 'gemini-1.0-pro-vision-latest') configured for analysis could not be accessed. Please verify your API key, Google Cloud project settings, and ensure the 'Generative Language API' or 'Vertex AI API' is enabled with billing. Original error: ${errorMessage}`);
+      if (errorMessage.toLowerCase().includes("model") && (errorMessage.toLowerCase().includes("not found") || errorMessage.toLowerCase().includes("cannot be accessed"))) {
+        setError(`AI Model Access Issue: The AI model configured for analysis could not be accessed. Please verify your API key, Google Cloud project settings, and ensure the necessary AI/ML APIs (e.g., 'Generative Language API' or 'Vertex AI API') are enabled with billing. Original error: ${errorMessage}`);
       } else if (errorMessage.toLowerCase().includes("safety") || errorMessage.toLowerCase().includes("blocked")) {
         setError(`Content Blocked: The AI model blocked the response, likely due to safety settings or the nature of the image content. Please try a different image. Original error: ${errorMessage}`);
       } else if (errorMessage.toLowerCase().includes("api key") || errorMessage.toLowerCase().includes("permission denied")) {
@@ -224,6 +232,7 @@ export default function StyleSeerPage() {
                   genderDepartment={analysis.genderDepartment}
                   brand={analysis.brand}
                   brandIsExplicit={analysis.brandIsExplicit}
+                  alternativeBrands={analysis.alternativeBrands}
                   similarItems={analysis.similarItems}
                 />
                 <div className="mt-10 text-center">
@@ -245,3 +254,5 @@ export default function StyleSeerPage() {
     </div>
   );
 }
+
+    
