@@ -19,15 +19,13 @@ type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
 
 type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
   similarItems?: SimilarItem[];
-  alternativeBrands?: string[]; // Added this
-  // brandIsExplicit is already part of AnalyzeClothingImageOutput
 };
 
 export type HistoryEntry = {
   id: string;
   timestamp: Date;
   imageUri: string;
-  analysisResult: AnalysisState;
+  analysisResult: AnalysisState; // This will store the primary analysis, not the dynamically loaded similar items for hovered brands
 };
 
 const MAX_HISTORY_ITEMS = 10;
@@ -36,7 +34,9 @@ const LOCAL_STORAGE_KEY = 'fittedToolSearchHistory';
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // For initial image analysis
+  const [isSpecificItemsLoading, setIsSpecificItemsLoading] = useState(false); // For loading items of a hovered brand
+  const [currentlyDisplayedBrandItems, setCurrentlyDisplayedBrandItems] = useState<string | null>(null); // Name of the brand whose items are shown
   const [error, setError] = useState<string | null>(null);
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState("Analyzing image...");
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
@@ -50,7 +50,7 @@ export default function StyleSeerPage() {
           setSearchHistory(parsedHistory);
         } else {
           console.warn("Invalid history format in localStorage:", parsedHistory);
-          localStorage.removeItem(LOCAL_STORAGE_KEY); 
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
         }
       }
     } catch (e) {
@@ -63,7 +63,7 @@ export default function StyleSeerPage() {
     try {
       if (searchHistory.length > 0) {
         localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(searchHistory));
-      } else if (localStorage.getItem(LOCAL_STORAGE_KEY)) { 
+      } else if (localStorage.getItem(LOCAL_STORAGE_KEY)) {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
     } catch (e) {
@@ -71,88 +71,58 @@ export default function StyleSeerPage() {
     }
   }, [searchHistory]);
 
-
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
       setImageUri(null);
       setAnalysis(null);
       setError(null);
       setIsLoading(false);
+      setIsSpecificItemsLoading(false);
+      setCurrentlyDisplayedBrandItems(null);
       setCurrentLoadingMessage("Analyzing image...");
       return;
     }
 
     setImageUri(dataUri);
-    setAnalysis(null);
+    setAnalysis(null); // Clear previous analysis
     setError(null);
     setIsLoading(true);
-    setCurrentLoadingMessage("Processing image and finding similar items...");
-
-    let finalAnalysisState: AnalysisState = {
-      clothingItems: [],
-      genderDepartment: '',
-      brand: undefined,
-      brandIsExplicit: false,
-      alternativeBrands: [],
-      similarItems: []
-    };
+    setIsSpecificItemsLoading(false);
+    setCurrentlyDisplayedBrandItems(null);
+    setCurrentLoadingMessage("Analyzing image details...");
 
     try {
-      // Step 1: Analyze clothing image
       const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri });
 
       if (clothingAnalysisResult) {
-        finalAnalysisState = { 
-          ...finalAnalysisState, 
+        const currentAnalysis: AnalysisState = {
           ...clothingAnalysisResult,
-          // Ensure alternativeBrands is initialized if not present, though schema should provide it
-          alternativeBrands: clothingAnalysisResult.alternativeBrands || [], 
+          similarItems: [], // Initialize similarItems as empty; will be populated on hover
         };
-      } else {
-        console.warn("Clothing analysis returned no result. Similar items search may be less accurate.");
-      }
+        setAnalysis(currentAnalysis);
 
-      // Step 2: Find similar items (can run in parallel if independent or use results from step 1)
-      // For now, it depends on clothingAnalysisResult, so it runs sequentially.
-      const similarItemsResult = await findSimilarItems({
-        photoDataUri: dataUri,
-        clothingItem: clothingAnalysisResult?.clothingItems?.[0] || "clothing item from image",
-        brand: clothingAnalysisResult?.brand,
-        initialBrandIsExplicit: clothingAnalysisResult?.brandIsExplicit,
-      });
-      
-      finalAnalysisState.similarItems = (similarItemsResult?.similarItems || []).map(item => ({
-        itemTitle: item.itemTitle,
-        itemDescription: item.itemDescription,
-        vendorLink: item.vendorLink,
-      }));
-      
-      setAnalysis(finalAnalysisState);
-
-      if (finalAnalysisState.clothingItems?.length || finalAnalysisState.brand || finalAnalysisState.genderDepartment || finalAnalysisState.similarItems?.length || finalAnalysisState.alternativeBrands?.length) {
-        setSearchHistory(prevHistory => {
-          const newEntry: HistoryEntry = {
-            id: new Date().toISOString() + Math.random(),
-            timestamp: new Date(),
-            imageUri: dataUri,
-            analysisResult: finalAnalysisState,
-          };
-          const updatedHistory = [newEntry, ...prevHistory.filter(item => item.id !== newEntry.id)];
-          return updatedHistory.slice(0, MAX_HISTORY_ITEMS);
-        });
-      }
-
-      if (!clothingAnalysisResult && (!similarItemsResult || similarItemsResult.similarItems.length === 0)) {
-        setError("Failed to analyze image or find similar items. The AI could not retrieve details for this image.");
-        setAnalysis(null);
-      } else {
+        // Save to history (without similarItems, as they are dynamic)
+        const historyAnalysisResult: AnalysisState = { ...clothingAnalysisResult, similarItems: undefined };
+         if (historyAnalysisResult.clothingItems?.length || historyAnalysisResult.brand || historyAnalysisResult.genderDepartment || historyAnalysisResult.alternativeBrands?.length) {
+            setSearchHistory(prevHistory => {
+            const newEntry: HistoryEntry = {
+                id: new Date().toISOString() + Math.random(),
+                timestamp: new Date(),
+                imageUri: dataUri,
+                analysisResult: historyAnalysisResult,
+            };
+            const updatedHistory = [newEntry, ...prevHistory.filter(item => item.id !== newEntry.id)];
+            return updatedHistory.slice(0, MAX_HISTORY_ITEMS);
+            });
+        }
         setError(null);
+      } else {
+        setError("Failed to analyze image. The AI could not retrieve details for this image.");
+        setAnalysis(null);
       }
-
     } catch (e: any) {
       console.error("Analysis Error:", e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred during image processing.";
-      
       if (errorMessage.toLowerCase().includes("model") && (errorMessage.toLowerCase().includes("not found") || errorMessage.toLowerCase().includes("cannot be accessed"))) {
         setError(`AI Model Access Issue: The AI model configured for analysis could not be accessed. Please verify your API key, Google Cloud project settings, and ensure the necessary AI/ML APIs (e.g., 'Generative Language API' or 'Vertex AI API') are enabled with billing. Original error: ${errorMessage}`);
       } else if (errorMessage.toLowerCase().includes("safety") || errorMessage.toLowerCase().includes("blocked")) {
@@ -168,18 +138,74 @@ export default function StyleSeerPage() {
     }
   }, []);
 
+  const handleBrandHover = useCallback(async (brandName: string) => {
+    if (!imageUri || !analysis) return; // Need image and initial analysis context
+
+    // Optional: Basic cache check - if we are already showing items for this brand, don't reload.
+    // if (currentlyDisplayedBrandItems === brandName && (analysis.similarItems && analysis.similarItems.length > 0) && !isSpecificItemsLoading) {
+    //   return;
+    // }
+
+    setIsSpecificItemsLoading(true);
+    setCurrentlyDisplayedBrandItems(brandName);
+    // Clear previous brand's items before loading new ones for better UX
+    setAnalysis(prevAnalysis => ({
+        ...prevAnalysis!,
+        similarItems: [], 
+    }));
+
+
+    try {
+      const similarItemsResult = await findSimilarItems({
+        photoDataUri: imageUri,
+        clothingItem: analysis.clothingItems?.[0] || "clothing item from image",
+        brand: brandName, // Focus on the hovered brand
+        initialBrandIsExplicit: analysis.brand === brandName && analysis.brandIsExplicit, // True if hovered brand is the explicitly ID'd one
+      });
+
+      setAnalysis(prevAnalysis => ({
+        ...prevAnalysis!,
+        similarItems: (similarItemsResult?.similarItems || []).map(item => ({
+          itemTitle: item.itemTitle,
+          itemDescription: item.itemDescription,
+          vendorLink: item.vendorLink,
+        })),
+      }));
+      setError(null); // Clear previous errors if successful
+    } catch (e: any) {
+      console.error(`Error fetching items for brand ${brandName}:`, e);
+      const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
+      setError(`Could not fetch items for ${brandName}: ${errorMessage}`);
+      setAnalysis(prevAnalysis => ({ // Ensure analysis state is maintained even on error
+        ...prevAnalysis!,
+        similarItems: [], // Clear items on error for this brand
+      }));
+    } finally {
+      setIsSpecificItemsLoading(false);
+    }
+  }, [imageUri, analysis]);
+
+
   const handleReset = useCallback(() => {
     setImageUri(null);
     setAnalysis(null);
     setError(null);
     setIsLoading(false);
+    setIsSpecificItemsLoading(false);
+    setCurrentlyDisplayedBrandItems(null);
     setCurrentLoadingMessage("Analyzing image...");
   }, []);
 
   const handleSelectHistoryItem = useCallback((entry: HistoryEntry) => {
     setImageUri(entry.imageUri);
-    setAnalysis(entry.analysisResult);
+    // Restore only the primary analysis from history. Similar items will be fetched on hover.
+    setAnalysis({
+        ...entry.analysisResult,
+        similarItems: [] // Reset similar items, will load on hover
+    });
     setIsLoading(false);
+    setIsSpecificItemsLoading(false);
+    setCurrentlyDisplayedBrandItems(null);
     setError(null);
   }, []);
 
@@ -210,16 +236,16 @@ export default function StyleSeerPage() {
             
             <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
 
-            {isLoading && (
+            {isLoading && ( // For initial analysis
               <div className="mt-10">
                 <LoadingSpinner message={currentLoadingMessage} />
               </div>
             )}
 
-            {error && !isLoading && (
+            {error && !isLoading && !isSpecificItemsLoading && ( // Show general errors if not loading anything
               <Alert variant="destructive" className="mt-10 max-w-xl mx-auto shadow-md">
                 <AlertCircle className="h-5 w-5" />
-                <AlertTitle>Analysis Error</AlertTitle>
+                <AlertTitle>Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
@@ -234,6 +260,9 @@ export default function StyleSeerPage() {
                   brandIsExplicit={analysis.brandIsExplicit}
                   alternativeBrands={analysis.alternativeBrands}
                   similarItems={analysis.similarItems}
+                  onBrandHover={handleBrandHover}
+                  isSpecificItemsLoading={isSpecificItemsLoading}
+                  currentlyDisplayedBrandItems={currentlyDisplayedBrandItems}
                 />
                 <div className="mt-10 text-center">
                   <Button onClick={handleReset} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
@@ -254,5 +283,4 @@ export default function StyleSeerPage() {
     </div>
   );
 }
-
     

@@ -1,10 +1,11 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info, Sparkles } from 'lucide-react';
+import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info, Sparkles, Loader2 } from 'lucide-react';
 import NextImage from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SimilarItem as GenkitSimilarItemBase } from '@/ai/flows/find-similar-items';
+import { Button } from '@/components/ui/button'; 
 
 interface SimilarItem extends Omit<GenkitSimilarItemBase, 'itemImageDataUri'> {}
 
@@ -12,10 +13,13 @@ interface AnalysisResultsProps {
   imagePreview: string | null;
   clothingItems?: string[];
   genderDepartment?: string;
-  brand?: string; 
+  brand?: string;
   brandIsExplicit?: boolean;
   alternativeBrands?: string[];
   similarItems?: SimilarItem[];
+  onBrandHover: (brandName: string) => void;
+  isSpecificItemsLoading: boolean;
+  currentlyDisplayedBrandItems: string | null; 
 }
 
 export default function AnalysisResults({
@@ -26,16 +30,30 @@ export default function AnalysisResults({
   brandIsExplicit,
   alternativeBrands,
   similarItems,
+  onBrandHover,
+  isSpecificItemsLoading,
+  currentlyDisplayedBrandItems,
 }: AnalysisResultsProps) {
-  if (!clothingItems?.length && !brand && !genderDepartment && !similarItems?.length && !alternativeBrands?.length) {
-    return null;
+  // Determine if there's anything to show at all.
+  const hasAnyDataToShow = imagePreview || 
+                           (clothingItems && clothingItems.length > 0) || 
+                           brand || 
+                           genderDepartment || 
+                           (alternativeBrands && alternativeBrands.length > 0);
+
+  if (!hasAnyDataToShow) {
+    // If no image preview and no analysis results, show nothing.
+    // If there is an image preview but no other results, the structure below will handle it.
+    if (!imagePreview) return null;
   }
   
-  const hasSimilarItems = similarItems && similarItems.length > 0;
-  const hasAnyAnalysisDetails = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment || (alternativeBrands && alternativeBrands.length > 0) ;
-
+  const hasPrimaryAnalysisDetails = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment;
   const brandDisplayTitle = brandIsExplicit ? "Brand (Clearly Identified)" : "Brand (AI Approximation)";
   const hasAlternativeBrands = alternativeBrands && alternativeBrands.length > 0;
+
+  const similarItemsTitle = currentlyDisplayedBrandItems 
+    ? `Style Suggestions from ${currentlyDisplayedBrandItems}` 
+    : "Style Suggestions";
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
@@ -53,7 +71,7 @@ export default function AnalysisResults({
       )}
 
       <div className={`flex flex-col gap-6 ${imagePreview ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
-        {!hasAnyAnalysisDetails && !hasSimilarItems && ( 
+        {imagePreview && !hasPrimaryAnalysisDetails && !hasAlternativeBrands && ( 
              <Card className="shadow-lg rounded-xl border-dashed border-amber-500 bg-amber-500/10">
              <CardHeader>
                <CardTitle className="flex items-center gap-2 text-xl text-amber-700">
@@ -61,12 +79,12 @@ export default function AnalysisResults({
                </CardTitle>
              </CardHeader>
              <CardContent>
-               <p className="text-md text-amber-600">We couldn't identify specific clothing details or find similar items for this image. Try a different image.</p>
+               <p className="text-md text-amber-600">We couldn't identify specific clothing details for this image.</p>
              </CardContent>
            </Card>
         )}
 
-        {hasAnyAnalysisDetails && (
+        {hasPrimaryAnalysisDetails && (
           <>
             {clothingItems && clothingItems.length > 0 && (
               <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
@@ -122,76 +140,93 @@ export default function AnalysisResults({
                 </CardContent>
               </Card>
             )}
-
-            {hasAlternativeBrands && (
-              <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Sparkles size={24} className="text-primary" /> Alternative Brands (Similar Style)
-                  </CardTitle>
-                  <CardDescription>Brands from our preferred list known for a similar aesthetic.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {alternativeBrands?.map((altBrand, index) => (
-                      <Badge key={index} variant="outline" className="text-sm px-3 py-1.5 shadow-sm">{altBrand}</Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </>
         )}
         
-        {(hasAnyAnalysisDetails || hasSimilarItems) && (
+        {hasAlternativeBrands && (
             <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-                <CardHeader>
+            <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
-                    <ShoppingBag size={24} className="text-primary" /> Similar Items Online
+                <Sparkles size={24} className="text-primary" /> Alternative Brands (Similar Style)
                 </CardTitle>
-                {!hasSimilarItems && (
-                    <CardDescription>We couldn't find specific online matches or suggestions for this item at the moment.</CardDescription>
-                )}
-                </CardHeader>
-                {hasSimilarItems && (
-                <CardContent>
-                  <TooltipProvider delayDuration={100}>
-                    <ul className="space-y-4">
-                    {similarItems.map((item, index) => (
-                      <li key={index} className="p-3 border rounded-md shadow-sm bg-card hover:bg-muted/40 transition-colors">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <a
-                              href={item.vendorLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="block group"
-                            >
-                              <p className="font-semibold text-md mb-1.5 text-foreground group-hover:text-accent transition-colors">{item.itemTitle}</p>
-                              <div className="flex items-center gap-1.5 text-sm text-accent/80 group-hover:text-accent transition-colors">
-                                <ExternalLink size={16} />
-                                <span className="underline group-hover:no-underline truncate">
-                                  View on {new URL(item.vendorLink).hostname.replace('www.','')}
-                                </span>
-                              </div>
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" align="start" className="max-w-xs bg-popover text-popover-foreground p-3 rounded-md shadow-lg border">
-                            <p className="text-sm font-semibold mb-1">{item.itemTitle}</p>
-                            <p className="text-sm">{item.itemDescription}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </li>
-                    ))}
-                    </ul>
-                  </TooltipProvider>
-                </CardContent>
-                )}
+                <CardDescription>Hover over a brand to see style suggestions from them below.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="flex flex-wrap gap-2">
+                {alternativeBrands?.map((altBrand, index) => (
+                    <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        onMouseEnter={() => onBrandHover(altBrand)}
+                        className="text-sm px-3 py-1.5 shadow-sm hover:bg-accent hover:text-accent-foreground focus:ring-2 focus:ring-ring"
+                        aria-label={`Show items from ${altBrand}`}
+                    >
+                        {altBrand}
+                    </Button>
+                ))}
+                </div>
+            </CardContent>
             </Card>
         )}
+
+        {/* Similar Items Section - Now dynamically updated */}
+        <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl lg:col-span-full">
+            <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-xl">
+                <ShoppingBag size={24} className="text-primary" /> {similarItemsTitle}
+            </CardTitle>
+            {!isSpecificItemsLoading && (!similarItems || similarItems.length === 0) && (
+                 <CardDescription>
+                    {currentlyDisplayedBrandItems 
+                        ? `No specific style suggestions found for ${currentlyDisplayedBrandItems} at the moment.`
+                        : (hasAlternativeBrands ? "Hover over an alternative brand above to see style suggestions." : "No alternative brands found to explore for suggestions.")}
+                 </CardDescription>
+            )}
+            </CardHeader>
+            <CardContent>
+                {isSpecificItemsLoading && (
+                    <div className="flex items-center justify-center py-6">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="ml-3 text-muted-foreground">Loading suggestions for {currentlyDisplayedBrandItems}...</p>
+                    </div>
+                )}
+                {!isSpecificItemsLoading && similarItems && similarItems.length > 0 && (
+                    <TooltipProvider delayDuration={100}>
+                        <ul className="space-y-4">
+                        {similarItems.map((item, index) => (
+                        <li key={index} className="p-3 border rounded-md shadow-sm bg-card hover:bg-muted/40 transition-colors">
+                            <Tooltip>
+                            <TooltipTrigger asChild>
+                                <a
+                                href={item.vendorLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block group"
+                                >
+                                <p className="font-semibold text-md mb-1.5 text-foreground group-hover:text-accent transition-colors">{item.itemTitle}</p>
+                                <div className="flex items-center gap-1.5 text-sm text-accent/80 group-hover:text-accent transition-colors">
+                                    <ExternalLink size={16} />
+                                    <span className="underline group-hover:no-underline truncate">
+                                    View on {new URL(item.vendorLink).hostname.replace('www.','')}
+                                    </span>
+                                </div>
+                                </a>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="start" className="max-w-xs bg-popover text-popover-foreground p-3 rounded-md shadow-lg border">
+                                <p className="text-sm font-semibold mb-1">{item.itemTitle}</p>
+                                <p className="text-sm">{item.itemDescription}</p>
+                            </TooltipContent>
+                            </Tooltip>
+                        </li>
+                        ))}
+                        </ul>
+                    </TooltipProvider>
+                )}
+            </CardContent>
+        </Card>
       </div>
     </div>
   );
 }
-
     
