@@ -1,10 +1,9 @@
 
 import type { HistoryEntry } from '@/app/page';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import NextImage from 'next/image';
-import { Eye, Clock } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Eye, Clock, ImageIcon } from 'lucide-react'; // Added ImageIcon for placeholder
 
 interface SearchHistoryProps {
   history: HistoryEntry[];
@@ -19,12 +18,11 @@ function getSummary(analysisResult: HistoryEntry['analysisResult']): string {
   if (analysisResult.brand) {
     parts.push(analysisResult.brand);
   }
-  // If brand and clothingItems are missing, check for genderDepartment
   if (parts.length === 0 && analysisResult.genderDepartment) {
     parts.push(analysisResult.genderDepartment);
   }
   if (parts.length === 0) {
-    return "Analyzed Image"; // Fallback if no other details are available
+    return "Analyzed Details"; 
   }
   return parts.join(' - ');
 }
@@ -44,14 +42,18 @@ export default function SearchHistory({ history, onSelectHistoryItem }: SearchHi
       {history.map((entry) => (
         <Card key={entry.id} className="overflow-hidden shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-start p-3 gap-3">
-            <div className="w-20 h-20 relative rounded-md overflow-hidden bg-muted flex-shrink-0">
-              <NextImage
-                src={entry.imageUri}
-                alt="Analyzed item thumbnail"
-                fill
-                className="rounded-md object-cover"
-                data-ai-hint="clothing thumbnail"
-              />
+            <div className="w-20 h-20 relative rounded-md overflow-hidden bg-muted/50 flex-shrink-0 flex items-center justify-center">
+              {entry.imageUri ? (
+                <NextImage
+                  src={entry.imageUri}
+                  alt="Analyzed item thumbnail"
+                  fill
+                  className="rounded-md object-cover"
+                  data-ai-hint="clothing thumbnail"
+                />
+              ) : (
+                <ImageIcon size={32} className="text-muted-foreground" /> 
+              )}
             </div>
             <div className="flex-grow min-w-0">
               <p className="text-sm font-medium truncate text-foreground" title={getSummary(entry.analysisResult)}>
@@ -79,3 +81,5 @@ export default function SearchHistory({ history, onSelectHistoryItem }: SearchHi
     </div>
   );
 }
+
+    

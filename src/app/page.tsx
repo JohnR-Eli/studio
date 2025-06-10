@@ -24,8 +24,8 @@ type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
 export type HistoryEntry = {
   id: string;
   timestamp: Date;
-  imageUri: string;
-  analysisResult: AnalysisState; // This will store the primary analysis, not the dynamically loaded similar items for hovered brands
+  imageUri?: string; // Made optional
+  analysisResult: AnalysisState;
 };
 
 const MAX_HISTORY_ITEMS = 10;
@@ -34,9 +34,9 @@ const LOCAL_STORAGE_KEY = 'fittedToolSearchHistory';
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
-  const [isLoading, setIsLoading] = useState(false); // For initial image analysis
-  const [isSpecificItemsLoading, setIsSpecificItemsLoading] = useState(false); // For loading items of a hovered brand
-  const [currentlyDisplayedBrandItems, setCurrentlyDisplayedBrandItems] = useState<string | null>(null); // Name of the brand whose items are shown
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSpecificItemsLoading, setIsSpecificItemsLoading] = useState(false);
+  const [currentlyDisplayedBrandItems, setCurrentlyDisplayedBrandItems] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState("Analyzing image...");
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
@@ -45,9 +45,10 @@ export default function StyleSeerPage() {
     try {
       const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (storedHistory) {
-        const parsedHistory = JSON.parse(storedHistory);
+        // Entries from localStorage will not have imageUri
+        const parsedHistory: Omit<HistoryEntry, 'imageUri'>[] = JSON.parse(storedHistory);
         if (Array.isArray(parsedHistory)) {
-          setSearchHistory(parsedHistory);
+          setSearchHistory(parsedHistory.map(item => ({...item, imageUri: undefined })));
         } else {
           console.warn("Invalid history format in localStorage:", parsedHistory);
           localStorage.removeItem(LOCAL_STORAGE_KEY);
@@ -62,12 +63,22 @@ export default function StyleSeerPage() {
   useEffect(() => {
     try {
       if (searchHistory.length > 0) {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(searchHistory));
+        // Create a version of history for localStorage that omits imageUri
+        const storableHistory = searchHistory.map(entry => {
+          const { imageUri, ...restOfEntry } = entry; // Destructure to remove imageUri for storage
+          return restOfEntry;
+        });
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(storableHistory));
       } else if (localStorage.getItem(LOCAL_STORAGE_KEY)) {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to save search history to localStorage:", e);
+      if (e && e.name === 'QuotaExceededError') {
+        console.warn("LocalStorage quota exceeded. Search history for this session might not be fully saved or previous history might be too large. Large image data is not saved to local storage to prevent this.");
+        // Optionally, could attempt to prune the storableHistory further or clear localStorage
+        // For now, we simply don't save if it's too large after stripping imageURIs (which is unlikely but possible with huge analysis results)
+      }
     }
   }, [searchHistory]);
 
@@ -84,7 +95,7 @@ export default function StyleSeerPage() {
     }
 
     setImageUri(dataUri);
-    setAnalysis(null); // Clear previous analysis
+    setAnalysis(null);
     setError(null);
     setIsLoading(true);
     setIsSpecificItemsLoading(false);
@@ -97,18 +108,17 @@ export default function StyleSeerPage() {
       if (clothingAnalysisResult) {
         const currentAnalysis: AnalysisState = {
           ...clothingAnalysisResult,
-          similarItems: [], // Initialize similarItems as empty; will be populated on hover
+          similarItems: [],
         };
         setAnalysis(currentAnalysis);
 
-        // Save to history (without similarItems, as they are dynamic)
         const historyAnalysisResult: AnalysisState = { ...clothingAnalysisResult, similarItems: undefined };
          if (historyAnalysisResult.clothingItems?.length || historyAnalysisResult.brand || historyAnalysisResult.genderDepartment || historyAnalysisResult.alternativeBrands?.length) {
             setSearchHistory(prevHistory => {
             const newEntry: HistoryEntry = {
                 id: new Date().toISOString() + Math.random(),
                 timestamp: new Date(),
-                imageUri: dataUri,
+                imageUri: dataUri, // Keep imageUri for in-memory state (current session)
                 analysisResult: historyAnalysisResult,
             };
             const updatedHistory = [newEntry, ...prevHistory.filter(item => item.id !== newEntry.id)];
@@ -139,28 +149,21 @@ export default function StyleSeerPage() {
   }, []);
 
   const handleBrandHover = useCallback(async (brandName: string) => {
-    if (!imageUri || !analysis) return; // Need image and initial analysis context
-
-    // Optional: Basic cache check - if we are already showing items for this brand, don't reload.
-    // if (currentlyDisplayedBrandItems === brandName && (analysis.similarItems && analysis.similarItems.length > 0) && !isSpecificItemsLoading) {
-    //   return;
-    // }
+    if (!imageUri || !analysis) return;
 
     setIsSpecificItemsLoading(true);
     setCurrentlyDisplayedBrandItems(brandName);
-    // Clear previous brand's items before loading new ones for better UX
     setAnalysis(prevAnalysis => ({
         ...prevAnalysis!,
-        similarItems: [], 
+        similarItems: [],
     }));
-
 
     try {
       const similarItemsResult = await findSimilarItems({
         photoDataUri: imageUri,
         clothingItem: analysis.clothingItems?.[0] || "clothing item from image",
-        brand: brandName, // Focus on the hovered brand
-        initialBrandIsExplicit: analysis.brand === brandName && analysis.brandIsExplicit, // True if hovered brand is the explicitly ID'd one
+        brand: brandName,
+        initialBrandIsExplicit: analysis.brand === brandName && analysis.brandIsExplicit,
       });
 
       setAnalysis(prevAnalysis => ({
@@ -171,14 +174,14 @@ export default function StyleSeerPage() {
           vendorLink: item.vendorLink,
         })),
       }));
-      setError(null); // Clear previous errors if successful
+      setError(null);
     } catch (e: any) {
       console.error(`Error fetching items for brand ${brandName}:`, e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
       setError(`Could not fetch items for ${brandName}: ${errorMessage}`);
-      setAnalysis(prevAnalysis => ({ // Ensure analysis state is maintained even on error
+      setAnalysis(prevAnalysis => ({
         ...prevAnalysis!,
-        similarItems: [], // Clear items on error for this brand
+        similarItems: [],
       }));
     } finally {
       setIsSpecificItemsLoading(false);
@@ -197,11 +200,10 @@ export default function StyleSeerPage() {
   }, []);
 
   const handleSelectHistoryItem = useCallback((entry: HistoryEntry) => {
-    setImageUri(entry.imageUri);
-    // Restore only the primary analysis from history. Similar items will be fetched on hover.
+    setImageUri(entry.imageUri || null); // Use imageUri if available (current session), else null
     setAnalysis({
         ...entry.analysisResult,
-        similarItems: [] // Reset similar items, will load on hover
+        similarItems: []
     });
     setIsLoading(false);
     setIsSpecificItemsLoading(false);
@@ -233,16 +235,16 @@ export default function StyleSeerPage() {
 
         <main className="flex-1 flex flex-col overflow-y-auto">
           <div className="container mx-auto px-4 py-8 md:py-12 flex-grow">
-            
+
             <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
 
-            {isLoading && ( // For initial analysis
+            {isLoading && (
               <div className="mt-10">
                 <LoadingSpinner message={currentLoadingMessage} />
               </div>
             )}
 
-            {error && !isLoading && !isSpecificItemsLoading && ( // Show general errors if not loading anything
+            {error && !isLoading && !isSpecificItemsLoading && (
               <Alert variant="destructive" className="mt-10 max-w-xl mx-auto shadow-md">
                 <AlertCircle className="h-5 w-5" />
                 <AlertTitle>Error</AlertTitle>
@@ -283,4 +285,6 @@ export default function StyleSeerPage() {
     </div>
   );
 }
+    
+
     
