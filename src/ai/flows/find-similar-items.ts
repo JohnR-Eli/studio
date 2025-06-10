@@ -1,7 +1,7 @@
 
 'use server';
 /**
- * @fileOverview AI agent to find similar clothing items from online vendors.
+ * @fileOverview AI agent to find similar clothing items from online vendors, focusing on a target brand.
  *
  * - findSimilarItems - A function that handles the process of finding similar items.
  * - FindSimilarItemsInput - The input type for the findSimilarItems function.
@@ -18,8 +18,7 @@ const FindSimilarItemsInputSchema = z.object({
       "The original image of the clothing item, as a data URI. It must include a MIME type (e.g., 'image/jpeg', 'image/png') and use Base64 encoding for the image data. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
   clothingItem: z.string().describe('The type or category of clothing item (e.g., dress, shirt, pants, or a general placeholder like "clothing item from image").'),
-  brand: z.string().optional().describe('The brand of the original clothing item, if known. This is highly useful for finding accurate matches or alternatives.'),
-  initialBrandIsExplicit: z.boolean().optional().describe('Indicates if the initial brand identification (passed in the "brand" field) was from clear visual cues on the original item.'),
+  targetBrandName: z.string().describe('The specific brand name to primarily find similar items from. This brand is typically one of the alternative brands suggested by the image analysis step.'),
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
@@ -31,7 +30,7 @@ const SimilarItemSchema = z.object({
 export type SimilarItem = z.infer<typeof SimilarItemSchema>;
 
 const FindSimilarItemsOutputSchema = z.object({
-  similarItems: z.array(SimilarItemSchema).describe('List of similar clothing items with their details and vendor links. Aim for at least 5 items suitable for adults (early 20s and older), primarily from the preferred brands list, offering stylistic alternatives.'),
+  similarItems: z.array(SimilarItemSchema).describe('List of up to 5 similar clothing items with their details and vendor links, suitable for adults (early 20s and older). These should primarily be from the targetBrandName, supplemented by other preferred brands if needed.'),
 });
 export type FindSimilarItemsOutput = z.infer<typeof FindSimilarItemsOutputSchema>;
 
@@ -39,7 +38,7 @@ export async function findSimilarItems(input: FindSimilarItemsInput): Promise<Fi
   return findSimilarItemsFlow(input);
 }
 
-const preferredBrandsList = [
+const preferredBrandsList = [ // This list serves as a fallback/supplement if targetBrandName yields insufficient results
   "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
   "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
   "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
@@ -52,38 +51,31 @@ const similarItemsTextPrompt = ai.definePrompt({
   name: 'similarItemsTextPrompt',
   input: {schema: FindSimilarItemsInputSchema},
   output: {schema: FindSimilarItemsOutputSchema },
-  prompt: `You are a highly skilled personal shopping assistant specializing in finding clothing items that are stylistically similar to a reference image and description.
+  prompt: `You are a highly skilled personal shopping assistant.
 The target audience for these recommendations is individuals in their early 20s or older. **Ensure all recommended items are suitable for adults and explicitly exclude any child-specific items or items primarily marketed towards children/teens.**
 
 Analyze the provided reference image and the clothing description.
 Reference Image: {{media url=photoDataUri}}
 Clothing Item Category: {{{clothingItem}}}
-{{#if brand}}Original Item's Brand (if known): {{{brand}}}{{/if}}
-{{#if initialBrandIsExplicit}}Original Item's Brand was Explicitly Seen: Yes{{/if}}
+Target Brand to Focus On: {{{targetBrandName}}}
 
-Your primary goal is to find at least 5 similar clothing items. These items **MUST primarily be sourced from brands within the following exclusive list**:
-${preferredBrandsList.map(b => `- ${b}`).join('\n')}
+Your primary goal is to find up to 5 clothing items that are stylistically similar to the item in the reference image.
 
 **Search and Recommendation Strategy:**
 
-1.  **Focus on Stylistic Similarity from Preferred Brands:**
-    Regardless of whether the 'Original Item's Brand' was explicitly identified (or even known), your main task is to find items from the preferred brands list above that are *stylistically similar* to the item shown in the reference image.
-    If an 'Original Item's Brand' is known, use it and the image as strong indicators of the *style* you are trying to match. However, the recommended items themselves should still primarily come from the preferred brands.
-    Aim to provide a diverse set of options from different brands within the preferred list if multiple brands offer suitable stylistic matches. This means you should suggest items from at least 3 different brands from the preferred list if stylistically appropriate matches exist, providing the user with "brand approximations" or alternatives.
-
-2.  **Resorting to Other Brands (Only as a Last Resort):**
-    Only if you have exhausted all reasonable options and cannot find at least 5 suitable items (including at least 3 different brand approximations from the preferred list) based on stylistic similarity from the preferred brands, you may then (and only then) consider items from:
-    a. The 'Original Item's Brand' (if it was known and not on the exclusive list, and you still need to meet the 5 item count).
-    b. Other brands that are visually very similar and of comparable style/quality to the reference image.
-
-Prioritize items that are visually very similar to the one in the reference image. When selecting items, try to choose products that are likely to be currently in stock and available for purchase (e.g., prefer items from current collections, and be cautious with items that appear to be on clearance or from very old listings, as they are more likely to be out of stock).
+1.  **Prioritize targetBrandName:** Your main task is to find items *from the targetBrandName* that are stylistically similar to the item shown in the reference image.
+2.  **Supplement with Preferred Brands List (If Necessary):** If you cannot find up to 5 suitable items directly from the \`targetBrandName\`, you may supplement your recommendations with stylistically similar items from the following 'Preferred Brands List':
+    ${preferredBrandsList.map(b => `- ${b}`).join('\n')}
+    Only use this list to complete the set of up to 5 items if the \`targetBrandName\` itself doesn't yield enough relevant options.
+3.  **Focus on Stylistic Similarity:** The items should match the style of the clothing in the reference image.
+4.  **Item Availability:** Prioritize items that are likely to be currently in stock (e.g., from current collections).
 
 For each similar item you suggest, provide:
-1.  'itemTitle': A concise title for the clothing item. Crucially, if you can identify the brand of this *similar item*, include it in the title (e.g., "BrandName Casual Linen Shirt", "DesignerX Floral Maxi Dress").
-2.  'itemDescription': A more detailed description (2-3 sentences) highlighting key features, materials, or why it's a strong stylistic match to the original.
-3.  'vendorLink': A direct URL to the product page for an item you believe to be currently available on an online vendor site if a specific match is found. If an exact product page for an in-stock item isn't clear, provide a URL to a search results page on the vendor's site for the item (e.g., "https://vendor.com/search?q=BrandName+Red+Dress") or a relevant category page that is likely to contain similar, available items. Ensure this is a valid URL.
+1.  'itemTitle': A concise title for the clothing item. Include the brand of this *similar item*.
+2.  'itemDescription': A detailed description (2-3 sentences) highlighting key features, materials, or why it's a strong stylistic match.
+3.  'vendorLink': A direct URL to the product page or a relevant search/category page. Ensure this is a valid URL.
 
-Return a JSON object containing a list of 'similarItems'. Ensure you provide at least 5 distinct similar items suitable for an adult audience, with at least 3 of these coming from different brands within the preferred list if possible. If no items are found, return an empty list for 'similarItems'.`,
+Return a JSON object containing a list of 'similarItems'. Provide up to 5 distinct similar items. If no items are found, return an empty list for 'similarItems'.`,
 });
 
 const findSimilarItemsFlow = ai.defineFlow(
@@ -95,11 +87,10 @@ const findSimilarItemsFlow = ai.defineFlow(
   async (input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> => {
     const {output} = await similarItemsTextPrompt(input);
 
-    if (!output || !output.similarItems || output.similarItems.length === 0) {
+    if (!output || !output.similarItems) { // Allow empty similarItems array
       return { similarItems: [] };
     }
     
     return output;
   }
 );
-

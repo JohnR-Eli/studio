@@ -15,12 +15,17 @@ function getSummary(analysisResult: HistoryEntry['analysisResult']): string {
   if (analysisResult.clothingItems && analysisResult.clothingItems.length > 0) {
     parts.push(analysisResult.clothingItems.slice(0, 2).join(', '));
   }
-  if (analysisResult.brand) {
-    parts.push(analysisResult.brand);
+  
+  if (analysisResult.identifiedBrand && analysisResult.brandIsExplicit) {
+    parts.push(analysisResult.identifiedBrand);
+  } else if (analysisResult.approximatedBrands && analysisResult.approximatedBrands.length > 0) {
+    parts.push(analysisResult.approximatedBrands[0] + " (Approx.)"); // Take the first approximation for summary
   }
+
   if (parts.length === 0 && analysisResult.genderDepartment) {
     parts.push(analysisResult.genderDepartment);
   }
+  
   if (parts.length === 0) {
     return "Analyzed Details"; 
   }
@@ -81,5 +86,3 @@ export default function SearchHistory({ history, onSelectHistoryItem }: SearchHi
     </div>
   );
 }
-
-    

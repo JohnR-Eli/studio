@@ -19,15 +19,18 @@ import { Label } from "@/components/ui/label";
 
 type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
 
-type AnalysisState = Partial<AnalyzeClothingImageOutput> & {
+// Updated AnalysisState to reflect new AI output structure
+type AnalysisState = Omit<AnalyzeClothingImageOutput, 'brand' | 'brandIsExplicit'> & 
+                     Partial<Pick<AnalyzeClothingImageOutput, 'identifiedBrand' | 'brandIsExplicit' | 'approximatedBrands' | 'alternativeBrands'>> & {
   similarItems?: SimilarItem[];
 };
+
 
 export type HistoryEntry = {
   id: string;
   timestamp: Date;
   imageUri?: string; 
-  analysisResult: AnalysisState;
+  analysisResult: AnalysisState; // Will store identifiedBrand, approximatedBrands, alternativeBrands etc.
 };
 
 const MAX_HISTORY_ITEMS = 10;
@@ -45,7 +48,6 @@ export default function StyleSeerPage() {
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
 
-  // Effect 1: Load preference and initial history on mount
   useEffect(() => {
     let initialPreference = false;
     try {
@@ -79,20 +81,13 @@ export default function StyleSeerPage() {
     }
   }, []); 
 
-  // Effect 2: Handle changes to saveHistoryPreference (user toggling checkbox)
   useEffect(() => {
     try {
       localStorage.setItem(HISTORY_PREFERENCE_KEY, String(saveHistoryPreference));
       if (!saveHistoryPreference) {
         localStorage.removeItem(LOCAL_STORAGE_KEY);
-        // Clear in-memory history as well if user unchecks, to reflect immediate change
-        // Keep this line if the expectation is that unchecking also clears current session view of history.
-        // Comment out or remove if unchecking should only affect next session's load & current session's save.
-        // For the request "clear the cache for history data whenever the app is restarted UNLESS the user ticks",
-        // clearing in-memory history here when unchecking is consistent.
         setSearchHistory([]); 
       } else {
-        // If user checks "save for next session" and there's current in-memory history, save it
         if (searchHistory.length > 0) {
            const storableHistory = searchHistory.map(entry => {
               const { imageUri, ...restOfEntry } = entry;
@@ -107,7 +102,6 @@ export default function StyleSeerPage() {
   }, [saveHistoryPreference]);
 
 
-  // Effect 3: Save search history data when it changes, but only if preference is to save
   useEffect(() => {
     if (saveHistoryPreference) {
       try {
@@ -124,6 +118,7 @@ export default function StyleSeerPage() {
         console.error("Failed to save search history to localStorage:", e);
         if (e && e.name === 'QuotaExceededError') {
           console.warn("LocalStorage quota exceeded. Search history for this session might not be fully saved.");
+           setError("Could not save full search history: Local storage quota exceeded. Try clearing some history or unchecking 'Save for next session' temporarily.");
         }
       }
     }
@@ -155,19 +150,21 @@ export default function StyleSeerPage() {
 
       if (clothingAnalysisResult) {
         const currentAnalysis: AnalysisState = {
-          ...clothingAnalysisResult,
-          similarItems: [],
+          ...clothingAnalysisResult, // includes identifiedBrand, brandIsExplicit, approximatedBrands, alternativeBrands
+          similarItems: [], // Initialize similarItems as empty
         };
         setAnalysis(currentAnalysis);
 
-        const historyAnalysisResult: AnalysisState = { ...clothingAnalysisResult, similarItems: undefined };
-         if (historyAnalysisResult.clothingItems?.length || historyAnalysisResult.brand || historyAnalysisResult.genderDepartment || historyAnalysisResult.alternativeBrands?.length) {
+        // Prepare data for history (omitting similarItems as they are loaded on hover)
+        const { similarItems, ...historyAnalysisData } = currentAnalysis;
+        
+         if (Object.values(historyAnalysisData).some(val => Array.isArray(val) ? val.length > 0 : !!val)) {
             setSearchHistory(prevHistory => {
             const newEntry: HistoryEntry = {
                 id: new Date().toISOString() + Math.random(),
                 timestamp: new Date(),
                 imageUri: dataUri, 
-                analysisResult: historyAnalysisResult,
+                analysisResult: historyAnalysisData,
             };
             const updatedHistory = [newEntry, ...prevHistory.filter(item => item.id !== newEntry.id)];
             return updatedHistory.slice(0, MAX_HISTORY_ITEMS);
@@ -199,19 +196,24 @@ export default function StyleSeerPage() {
   const handleBrandHover = useCallback(async (brandName: string) => {
     if (!imageUri || !analysis) return;
 
+    // Avoid re-fetching if already showing items for this brand or if another fetch is in progress
+    if (currentlyDisplayedBrandItems === brandName && (analysis.similarItems && analysis.similarItems.length > 0) && !isSpecificItemsLoading) return;
+    if (isSpecificItemsLoading && currentlyDisplayedBrandItems === brandName) return;
+
+
     setIsSpecificItemsLoading(true);
     setCurrentlyDisplayedBrandItems(brandName);
+    // Clear previous similar items to show loading state correctly
     setAnalysis(prevAnalysis => ({
         ...prevAnalysis!,
-        similarItems: [],
+        similarItems: [], 
     }));
 
     try {
       const similarItemsResult = await findSimilarItems({
         photoDataUri: imageUri,
         clothingItem: analysis.clothingItems?.[0] || "clothing item from image",
-        brand: brandName,
-        initialBrandIsExplicit: analysis.brand === brandName && analysis.brandIsExplicit,
+        targetBrandName: brandName, // Use targetBrandName as per new schema
       });
 
       setAnalysis(prevAnalysis => ({
@@ -234,7 +236,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsSpecificItemsLoading(false);
     }
-  }, [imageUri, analysis]);
+  }, [imageUri, analysis, isSpecificItemsLoading, currentlyDisplayedBrandItems]);
 
 
   const handleReset = useCallback(() => {
@@ -250,8 +252,8 @@ export default function StyleSeerPage() {
   const handleSelectHistoryItem = useCallback((entry: HistoryEntry) => {
     setImageUri(entry.imageUri || null); 
     setAnalysis({
-        ...entry.analysisResult,
-        similarItems: [] 
+        ...entry.analysisResult, // This will now include identifiedBrand, approximatedBrands etc.
+        similarItems: [] // Similar items will be loaded on hover
     });
     setIsLoading(false);
     setIsSpecificItemsLoading(false);
@@ -323,8 +325,9 @@ export default function StyleSeerPage() {
                   imagePreview={imageUri}
                   clothingItems={analysis.clothingItems}
                   genderDepartment={analysis.genderDepartment}
-                  brand={analysis.brand}
+                  identifiedBrand={analysis.identifiedBrand}
                   brandIsExplicit={analysis.brandIsExplicit}
+                  approximatedBrands={analysis.approximatedBrands}
                   alternativeBrands={analysis.alternativeBrands}
                   similarItems={analysis.similarItems}
                   onBrandHover={handleBrandHover}
@@ -350,4 +353,3 @@ export default function StyleSeerPage() {
     </div>
   );
 }
-    

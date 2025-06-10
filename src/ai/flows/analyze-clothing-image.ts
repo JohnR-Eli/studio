@@ -2,7 +2,7 @@
 'use server';
 
 /**
- * @fileOverview An AI agent to analyze clothing images.
+ * @fileOverview An AI agent to analyze clothing images for brand identification, approximations, and style alternatives.
  *
  * - analyzeClothingImage - A function that handles the clothing image analysis process.
  * - AnalyzeClothingImageInput - The input type for the analyzeClothingImage function.
@@ -33,9 +33,10 @@ const preferredBrandsForStyleApproximation = [
 const AnalyzeClothingImageOutputSchema = z.object({
   clothingItems: z.array(z.string()).describe('List of clothing items or categories detected in the image (e.g., "T-Shirt", "Jeans", "Sneakers").'),
   genderDepartment: z.string().describe("The gender department the clothing items primarily belong to. This must be strictly one of: \"Men's\", \"Women's\", or \"Unisex\"."),
-  brand: z.string().describe('The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you MUST choose one brand from the provided list where the item would fit best. You must always return a brand name; do not return a null or empty response for the brand.'),
-  brandIsExplicit: z.boolean().describe('True if the brand was explicitly identified from clear visual cues (e.g., a visible logo or tag), false if the brand was an approximation or chosen from the fallback list.'),
-  alternativeBrands: z.array(z.string()).describe('A list of up to 3 brands from the preferred list that offer clothing items stylistically similar to the one(s) in the image. These are approximations based on style. Do not include the primary identified brand in this list unless no other distinct alternatives from the preferred list can be found.'),
+  identifiedBrand: z.string().optional().describe('The brand name if explicitly identified by a logo/tag. If not explicitly identified, this field should be null or undefined.'),
+  brandIsExplicit: z.boolean().describe('True if `identifiedBrand` is populated due to an explicit logo/tag being visible on the item. False otherwise.'),
+  approximatedBrands: z.array(z.string()).describe("If 'brandIsExplicit' is false, this list will contain up to 5 brands from the preferred list that are stylistic approximations to the item(s) in the image. If 'brandIsExplicit' is true, this list must be empty."),
+  alternativeBrands: z.array(z.string()).describe('A list of up to 5 brands from the preferred list that offer clothing items stylistically similar to the one(s) in the image. This should always be populated with relevant suggestions. These brands should be distinct from `identifiedBrand` if it is present and explicit.'),
 });
 export type AnalyzeClothingImageOutput = z.infer<typeof AnalyzeClothingImageOutputSchema>;
 
@@ -55,11 +56,28 @@ const prompt = ai.definePrompt({
   output: {schema: AnalyzeClothingImageOutputSchema},
   prompt: `You are an AI fashion assistant. Analyze the clothing in the image and provide the following information:
 
-- A list of the clothing items or categories present in the image (e.g., "T-Shirt", "Dress", "Hoodie").
-- The gender department the clothing items primarily belong to. This must be strictly one of: "Men's", "Women's", or "Unisex".
-- The brand of the clothing. Make your best effort to identify the brand from visual cues (logos, tags), distinctive design elements, or the overall style characteristic of a known brand. If after careful analysis no brand is clearly identifiable, you MUST choose one brand from the following list where the item would fit best: ${preferredBrandsForStyleApproximation.join(', ')}. You must always return a brand name; do not return a null or empty response for the brand.
-- 'brandIsExplicit': Set this to true if the brand was identified from a clear, visible logo or tag on the item itself. Set it to false if the brand identification is an approximation based on style, if it was chosen from the fallback list because no brand was clear, or if you are otherwise not highly confident it's the exact brand shown.
-- 'alternativeBrands': Suggest up to 3 alternative brands from the *same preferred list* above: (${preferredBrandsForStyleApproximation.join(', ')}). These alternative brands should be known for a style that is similar to the item(s) in the image. This list should offer stylistic approximations. Do not include the primary identified brand in this 'alternativeBrands' list unless you can find no other distinct alternatives from the preferred list. Prioritize diversity in these suggestions if multiple style matches exist in the preferred list. If no suitable alternative brands from the list can be determined, return an empty array for 'alternativeBrands'.
+- 'clothingItems': A list of the clothing items or categories present in the image (e.g., "T-Shirt", "Dress", "Hoodie").
+- 'genderDepartment': The gender department the clothing items primarily belong to. This must be strictly one of: "Men's", "Women's", or "Unisex".
+
+Brand Identification:
+- Carefully examine the image for any explicit brand indicators like logos, tags, or highly distinctive, brand-specific design elements.
+- If a brand is clearly and explicitly identifiable from such indicators:
+    - Set 'identifiedBrand' to the name of this brand.
+    - Set 'brandIsExplicit' to true.
+    - Set 'approximatedBrands' to an empty list.
+- If no brand is explicitly identifiable from clear indicators:
+    - Set 'identifiedBrand' to null or ensure it is not populated.
+    - Set 'brandIsExplicit' to false.
+    - From the 'Preferred Brand List' below, identify up to 5 brands that are the closest stylistic approximations to the item(s) shown. Populate 'approximatedBrands' with these brand names. If fewer than 5 strong approximations are found, list as many as are appropriate. An empty list is acceptable if no reasonable approximations can be made from the list.
+
+Alternative Stylistic Brands:
+- Regardless of whether a brand was explicitly identified or if approximations were made, you MUST provide a list for 'alternativeBrands'.
+- Populate 'alternativeBrands' with up to 5 brands from the *same 'Preferred Brand List'* below. These brands should be known for a style that is similar to the item(s) in the image.
+- If 'identifiedBrand' was populated (meaning brandIsExplicit is true), the brands in 'alternativeBrands' should ideally be different from 'identifiedBrand' to offer true alternatives. If this is not possible while maintaining stylistic relevance from the preferred list, some overlap is acceptable but prioritize diversity first.
+- Ensure 'alternativeBrands' always contains up to 5 relevant suggestions from the preferred list if stylistically appropriate matches can be found. If fewer than 5 are truly relevant, provide as many as are. If no relevant alternative brands can be found from the list, it's acceptable for 'alternativeBrands' to be an empty list.
+
+Preferred Brand List (use this for 'approximatedBrands' and 'alternativeBrands'):
+${preferredBrandsForStyleApproximation.join(', ')}
 
 Image: {{media url=photoDataUri}}`,
 });
@@ -74,6 +92,14 @@ const analyzeClothingImageFlow = ai.defineFlow(
     try {
       const result = await prompt(input);
       if (result.output) {
+        // Ensure approximatedBrands is empty if brandIsExplicit is true and identifiedBrand is set
+        if (result.output.brandIsExplicit && result.output.identifiedBrand) {
+          result.output.approximatedBrands = [];
+        }
+        // Ensure identifiedBrand is null/undefined if brandIsExplicit is false
+        if (!result.output.brandIsExplicit) {
+            result.output.identifiedBrand = undefined;
+        }
         return result.output;
       }
       const errorMessage = "analyzeClothingImageFlow: Prompt did not return a valid output.";
@@ -82,11 +108,7 @@ const analyzeClothingImageFlow = ai.defineFlow(
     } catch (e: any) {
       const errorMessage = `Error in analyzeClothingImageFlow: ${e.message || String(e)}`;
       console.error(errorMessage, e);
-      // Re-throw the error to be caught by the calling function if needed.
-      // This ensures the flow itself signals failure according to its schema.
       throw new Error(errorMessage); 
     }
   }
 );
-
-    

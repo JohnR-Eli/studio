@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info, Sparkles, Loader2 } from 'lucide-react';
+import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info, Sparkles, Loader2, SearchCheck } from 'lucide-react';
 import NextImage from 'next/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { SimilarItem as GenkitSimilarItemBase } from '@/ai/flows/find-similar-items';
@@ -13,8 +13,9 @@ interface AnalysisResultsProps {
   imagePreview: string | null;
   clothingItems?: string[];
   genderDepartment?: string;
-  brand?: string;
+  identifiedBrand?: string; // Changed from brand
   brandIsExplicit?: boolean;
+  approximatedBrands?: string[]; // New prop
   alternativeBrands?: string[];
   similarItems?: SimilarItem[];
   onBrandHover: (brandName: string) => void;
@@ -26,30 +27,32 @@ export default function AnalysisResults({
   imagePreview,
   clothingItems,
   genderDepartment,
-  brand,
+  identifiedBrand,
   brandIsExplicit,
+  approximatedBrands,
   alternativeBrands,
   similarItems,
   onBrandHover,
   isSpecificItemsLoading,
   currentlyDisplayedBrandItems,
 }: AnalysisResultsProps) {
-  // Determine if there's anything to show at all.
   const hasAnyDataToShow = imagePreview || 
                            (clothingItems && clothingItems.length > 0) || 
-                           brand || 
+                           identifiedBrand || 
+                           (approximatedBrands && approximatedBrands.length > 0) ||
                            genderDepartment || 
                            (alternativeBrands && alternativeBrands.length > 0);
 
   if (!hasAnyDataToShow) {
-    // If no image preview and no analysis results, show nothing.
-    // If there is an image preview but no other results, the structure below will handle it.
     if (!imagePreview) return null;
   }
   
-  const hasPrimaryAnalysisDetails = (clothingItems && clothingItems.length > 0) || !!brand || !!genderDepartment;
-  const brandDisplayTitle = brandIsExplicit ? "Brand (Clearly Identified)" : "Brand (AI Approximation)";
-  const hasAlternativeBrands = alternativeBrands && alternativeBrands.length > 0;
+  const hasPrimaryAnalysisDetails = (clothingItems && clothingItems.length > 0) || 
+                                  !!identifiedBrand || 
+                                  (approximatedBrands && approximatedBrands.length > 0) ||
+                                  !!genderDepartment;
+
+  const hasAlternativeBrandsToExplore = alternativeBrands && alternativeBrands.length > 0;
 
   const similarItemsTitle = currentlyDisplayedBrandItems 
     ? `Style Suggestions from ${currentlyDisplayedBrandItems}` 
@@ -71,7 +74,7 @@ export default function AnalysisResults({
       )}
 
       <div className={`flex flex-col gap-6 ${imagePreview ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
-        {imagePreview && !hasPrimaryAnalysisDetails && !hasAlternativeBrands && ( 
+        {imagePreview && !hasPrimaryAnalysisDetails && !hasAlternativeBrandsToExplore && ( 
              <Card className="shadow-lg rounded-xl border-dashed border-amber-500 bg-amber-500/10">
              <CardHeader>
                <CardTitle className="flex items-center gap-2 text-xl text-amber-700">
@@ -116,34 +119,49 @@ export default function AnalysisResults({
               </Card>
             )}
 
-            {brand && (
+            {identifiedBrand && brandIsExplicit && (
               <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-xl">
-                    <Ticket size={24} className="text-primary" /> {brandDisplayTitle}
-                    {!brandIsExplicit && (
+                    <Ticket size={24} className="text-primary" /> Brand (Clearly Identified)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-md font-medium">{identifiedBrand}</p>
+                </CardContent>
+              </Card>
+            )}
+            
+            {!brandIsExplicit && approximatedBrands && approximatedBrands.length > 0 && (
+                 <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
+                 <CardHeader>
+                   <CardTitle className="flex items-center gap-2 text-xl">
+                     <SearchCheck size={24} className="text-primary" /> Brand Approximations (AI Suggestion)
                       <TooltipProvider>
                         <Tooltip delayDuration={100}>
                           <TooltipTrigger asChild>
                             <Info size={16} className="text-muted-foreground cursor-help" />
                           </TooltipTrigger>
                           <TooltipContent side="top" className="max-w-xs bg-popover text-popover-foreground p-2 rounded-md shadow-lg border">
-                            <p className="text-xs">This brand is an AI approximation as a clear brand was not visible or it was chosen from a best-fit list.</p>
+                            <p className="text-xs">No single brand was explicitly visible. These are AI-suggested approximations from our preferred list based on style.</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
-                    )}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-md font-medium">{brand}</p>
-                </CardContent>
-              </Card>
+                   </CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <div className="flex flex-wrap gap-2">
+                     {approximatedBrands.map((brand, index) => (
+                       <Badge key={index} variant="outline" className="text-sm px-3 py-1.5 shadow-sm">{brand}</Badge>
+                     ))}
+                   </div>
+                 </CardContent>
+               </Card>
             )}
           </>
         )}
         
-        {hasAlternativeBrands && (
+        {hasAlternativeBrandsToExplore && (
             <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
@@ -159,7 +177,7 @@ export default function AnalysisResults({
                         variant="outline"
                         size="sm"
                         onMouseEnter={() => onBrandHover(altBrand)}
-                        className="text-sm px-3 py-1.5 shadow-sm hover:bg-accent hover:text-accent-foreground focus:ring-2 focus:ring-ring"
+                        className={`text-sm px-3 py-1.5 shadow-sm hover:bg-accent hover:text-accent-foreground focus:ring-2 focus:ring-ring ${currentlyDisplayedBrandItems === altBrand ? 'bg-accent text-accent-foreground' : ''}`}
                         aria-label={`Show items from ${altBrand}`}
                     >
                         {altBrand}
@@ -170,7 +188,7 @@ export default function AnalysisResults({
             </Card>
         )}
 
-        {/* Similar Items Section - Now dynamically updated */}
+        {/* Similar Items Section - Dynamically updated */}
         <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl lg:col-span-full">
             <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
@@ -180,7 +198,7 @@ export default function AnalysisResults({
                  <CardDescription>
                     {currentlyDisplayedBrandItems 
                         ? `No specific style suggestions found for ${currentlyDisplayedBrandItems} at the moment.`
-                        : (hasAlternativeBrands ? "Hover over an alternative brand above to see style suggestions." : "No alternative brands found to explore for suggestions.")}
+                        : (hasAlternativeBrandsToExplore ? "Hover over an alternative brand above to see style suggestions." : "No alternative brands identified to explore for suggestions.")}
                  </CardDescription>
             )}
             </CardHeader>
@@ -229,4 +247,3 @@ export default function AnalysisResults({
     </div>
   );
 }
-    
