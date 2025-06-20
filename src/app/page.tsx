@@ -2,8 +2,9 @@
 "use client";
 
 import { useState, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/style-seer/ImageUpload';
-import AnalysisResults from '@/components/style-seer/AnalysisResults';
+// import AnalysisResults from '@/components/style-seer/AnalysisResults'; // Removed direct import
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import SearchHistory from '@/components/style-seer/SearchHistory';
@@ -17,10 +18,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
+const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
+  loading: () => <div className="mt-10"><LoadingSpinner message="Loading results area..." /></div>,
+  ssr: false // Optional: If the component doesn't need SSR or has browser-specific APIs on mount
+});
+
 type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
 
-// Updated AnalysisState to reflect new AI output structure
-type AnalysisState = Omit<AnalyzeClothingImageOutput, 'brand' | 'brandIsExplicit'> & 
+type AnalysisState = Omit<AnalyzeClothingImageOutput, 'brandIsExplicit'> & 
                      Partial<Pick<AnalyzeClothingImageOutput, 'identifiedBrand' | 'brandIsExplicit' | 'approximatedBrands' | 'alternativeBrands'>> & {
   similarItems?: SimilarItem[];
 };
@@ -30,7 +35,7 @@ export type HistoryEntry = {
   id: string;
   timestamp: Date;
   imageUri?: string; 
-  analysisResult: AnalysisState; // Will store identifiedBrand, approximatedBrands, alternativeBrands etc.
+  analysisResult: AnalysisState; 
 };
 
 const MAX_HISTORY_ITEMS = 10;
@@ -150,12 +155,11 @@ export default function StyleSeerPage() {
 
       if (clothingAnalysisResult) {
         const currentAnalysis: AnalysisState = {
-          ...clothingAnalysisResult, // includes identifiedBrand, brandIsExplicit, approximatedBrands, alternativeBrands
-          similarItems: [], // Initialize similarItems as empty
+          ...clothingAnalysisResult, 
+          similarItems: [], 
         };
         setAnalysis(currentAnalysis);
 
-        // Prepare data for history (omitting similarItems as they are loaded on hover)
         const { similarItems, ...historyAnalysisData } = currentAnalysis;
         
          if (Object.values(historyAnalysisData).some(val => Array.isArray(val) ? val.length > 0 : !!val)) {
@@ -196,14 +200,12 @@ export default function StyleSeerPage() {
   const handleBrandHover = useCallback(async (brandName: string) => {
     if (!imageUri || !analysis) return;
 
-    // Avoid re-fetching if already showing items for this brand or if another fetch is in progress
     if (currentlyDisplayedBrandItems === brandName && (analysis.similarItems && analysis.similarItems.length > 0) && !isSpecificItemsLoading) return;
     if (isSpecificItemsLoading && currentlyDisplayedBrandItems === brandName) return;
 
 
     setIsSpecificItemsLoading(true);
     setCurrentlyDisplayedBrandItems(brandName);
-    // Clear previous similar items to show loading state correctly
     setAnalysis(prevAnalysis => ({
         ...prevAnalysis!,
         similarItems: [], 
@@ -213,7 +215,7 @@ export default function StyleSeerPage() {
       const similarItemsResult = await findSimilarItems({
         photoDataUri: imageUri,
         clothingItem: analysis.clothingItems?.[0] || "clothing item from image",
-        targetBrandName: brandName, // Use targetBrandName as per new schema
+        targetBrandName: brandName,
       });
 
       setAnalysis(prevAnalysis => ({
@@ -252,8 +254,8 @@ export default function StyleSeerPage() {
   const handleSelectHistoryItem = useCallback((entry: HistoryEntry) => {
     setImageUri(entry.imageUri || null); 
     setAnalysis({
-        ...entry.analysisResult, // This will now include identifiedBrand, approximatedBrands etc.
-        similarItems: [] // Similar items will be loaded on hover
+        ...entry.analysisResult, 
+        similarItems: [] 
     });
     setIsLoading(false);
     setIsSpecificItemsLoading(false);
