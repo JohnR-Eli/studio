@@ -38,7 +38,7 @@ export async function findSimilarItems(input: FindSimilarItemsInput): Promise<Fi
   return findSimilarItemsFlow(input);
 }
 
-const preferredBrandsList = [ // This list serves as a fallback/supplement if targetBrandName yields insufficient results
+const preferredBrandsList = [
   "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
   "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
   "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
@@ -61,12 +61,12 @@ Target Brand to Focus On: {{{targetBrandName}}}
 
 Your primary goal is to find up to 5 clothing items that are stylistically similar to the item in the reference image.
 
-**Search and Recommendation Strategy:**
+Search and Recommendation Strategy:
 
-1.  **Prioritize targetBrandName:** Your main task is to find items *from the targetBrandName* that are stylistically similar to the item shown in the reference image.
-2.  **Supplement with Preferred Brands List (If Necessary):** If you cannot find up to 5 suitable items directly from the \`targetBrandName\`, you may supplement your recommendations with stylistically similar items from the following 'Preferred Brands List':
+1.  **Prioritize Target Brand:** Your main task is to find items *from the targetBrandName* that are stylistically similar to the item shown in the reference image.
+2.  **Supplement with Preferred Brands List (If Necessary):** If you cannot find up to 5 suitable items directly from the targetBrandName, you may supplement your recommendations with stylistically similar items from the following 'Preferred Brands List':
     ${preferredBrandsList.map(b => `- ${b}`).join('\n')}
-    Only use this list to complete the set of up to 5 items if the \`targetBrandName\` itself doesn't yield enough relevant options.
+    Only use this list to complete the set of up to 5 items if the targetBrandName itself doesn't yield enough relevant options.
 3.  **Focus on Stylistic Similarity:** The items should match the style of the clothing in the reference image.
 4.  **Item Availability:** Prioritize items that are likely to be currently in stock (e.g., from current collections).
 
@@ -85,12 +85,18 @@ const findSimilarItemsFlow = ai.defineFlow(
     outputSchema: FindSimilarItemsOutputSchema,
   },
   async (input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> => {
-    const {output} = await similarItemsTextPrompt(input);
+    try {
+      const {output} = await similarItemsTextPrompt(input);
 
-    if (!output || !output.similarItems) { // Allow empty similarItems array
+      if (output && output.similarItems) {
+        return output;
+      }
+      // If output or output.similarItems is null/undefined, return a valid empty state.
+      return { similarItems: [] };
+    } catch (e) {
+      console.error(`Error in findSimilarItemsFlow for brand ${input.targetBrandName}:`, e);
+      // In case of an error, also return a valid empty state.
       return { similarItems: [] };
     }
-    
-    return output;
   }
 );
