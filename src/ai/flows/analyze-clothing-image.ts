@@ -54,7 +54,7 @@ const prompt = ai.definePrompt({
   name: 'analyzeClothingImagePrompt',
   input: {schema: AnalyzeClothingImageInputSchema},
   output: {schema: AnalyzeClothingImageOutputSchema},
-  prompt: `You are an AI fashion assistant. Analyze the clothing in the image and provide the following information:
+  prompt: `You are an AI fashion assistant, this is your last chance to keep this job. Analyze the clothing in the image and provide the following information:
 
 - 'clothingItems': A list of the clothing items or categories present in the image (e.g., "T-Shirt", "Dress", "Hoodie").
 - 'genderDepartment': The gender department the clothing items primarily belong to. This must be strictly one of: "Men's", "Women's", or "Unisex".
