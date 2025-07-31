@@ -9,8 +9,9 @@ import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import SearchHistory from '@/components/style-seer/SearchHistory';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
-import { findSimilarItems, FindSimilarItemsOutput, SimilarItem as GenkitSimilarItem } from '@/ai/flows/find-similar-items';
+import { callExternalApi, ApiResponse } from '@/ai/flows/call-external-api';
 import { AlertCircle, RotateCcw, History as HistoryIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +24,12 @@ const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisRe
   ssr: false // Optional: If the component doesn't need SSR or has browser-specific APIs on mount
 });
 
-type SimilarItem = Omit<GenkitSimilarItem, 'itemImageDataUri'>;
+type SimilarItem = {
+    itemTitle: string;
+    itemDescription: string;
+    vendorLink: string;
+    imageURL: string;
+};
 
 type AnalysisState = Omit<AnalyzeClothingImageOutput, 'brandIsExplicit'> & 
                      Partial<Pick<AnalyzeClothingImageOutput, 'identifiedBrand' | 'brandIsExplicit' | 'approximatedBrands' | 'alternativeBrands'>> & {
@@ -47,11 +53,12 @@ export default function StyleSeerPage() {
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSpecificItemsLoading, setIsSpecificItemsLoading] = useState(false);
-  const [currentlyDisplayedBrandItems, setCurrentlyDisplayedBrandItems] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState("Analyzing image...");
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
+  const [country, setCountry] = useState('United States');
+  const [numSimilarItems, setNumSimilarItems] = useState(5);
 
   useEffect(() => {
     let initialPreference = false;
@@ -137,7 +144,6 @@ export default function StyleSeerPage() {
       setError(null);
       setIsLoading(false);
       setIsSpecificItemsLoading(false);
-      setCurrentlyDisplayedBrandItems(null);
       setCurrentLoadingMessage("Analyzing image...");
       return;
     }
@@ -147,7 +153,6 @@ export default function StyleSeerPage() {
     setError(null);
     setIsLoading(true);
     setIsSpecificItemsLoading(false);
-    setCurrentlyDisplayedBrandItems(null);
     setCurrentLoadingMessage("Analyzing image details...");
 
     try {
@@ -159,6 +164,12 @@ export default function StyleSeerPage() {
           similarItems: [], 
         };
         setAnalysis(currentAnalysis);
+        
+        const brandToFetch = clothingAnalysisResult.identifiedBrand || (clothingAnalysisResult.approximatedBrands && clothingAnalysisResult.approximatedBrands[0]);
+
+        if (brandToFetch) {
+            handleBrandSelect(brandToFetch, currentAnalysis.clothingItems[0], currentAnalysis.genderDepartment);
+        }
 
         const { similarItems, ...historyAnalysisData } = currentAnalysis;
         
@@ -197,35 +208,30 @@ export default function StyleSeerPage() {
     }
   }, []);
 
-  const handleBrandHover = useCallback(async (brandName: string) => {
-    if (!imageUri || !analysis) return;
-
-    if (currentlyDisplayedBrandItems === brandName && (analysis.similarItems && analysis.similarItems.length > 0) && !isSpecificItemsLoading) return;
-    if (isSpecificItemsLoading && currentlyDisplayedBrandItems === brandName) return;
-
-
+  const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string) => {
     setIsSpecificItemsLoading(true);
-    setCurrentlyDisplayedBrandItems(brandName);
-    setAnalysis(prevAnalysis => ({
-        ...prevAnalysis!,
-        similarItems: [], 
-    }));
 
     try {
-      const similarItemsResult = await findSimilarItems({
-        photoDataUri: imageUri,
-        clothingItem: analysis.clothingItems?.[0] || "clothing item from image",
-        targetBrandName: brandName,
-      });
+      const apiResponse = await callExternalApi(
+        numSimilarItems,
+        category,
+        brandName,
+        gender,
+        country
+      );
+
+      const newSimilarItems = apiResponse.imageURLs.map((imageUrl, index) => ({
+          itemTitle: 'Similar Item',
+          itemDescription: 'Click to view product page.',
+          vendorLink: apiResponse.URLs[index],
+          imageURL: imageUrl,
+      }));
 
       setAnalysis(prevAnalysis => ({
         ...prevAnalysis!,
-        similarItems: (similarItemsResult?.similarItems || []).map(item => ({
-          itemTitle: item.itemTitle,
-          itemDescription: item.itemDescription,
-          vendorLink: item.vendorLink,
-        })),
+        similarItems: newSimilarItems,
       }));
+
       setError(null);
     } catch (e: any) {
       console.error(`Error fetching items for brand ${brandName}:`, e);
@@ -238,7 +244,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsSpecificItemsLoading(false);
     }
-  }, [imageUri, analysis, isSpecificItemsLoading, currentlyDisplayedBrandItems]);
+  }, [country, numSimilarItems]);
 
 
   const handleReset = useCallback(() => {
@@ -247,7 +253,6 @@ export default function StyleSeerPage() {
     setError(null);
     setIsLoading(false);
     setIsSpecificItemsLoading(false);
-    setCurrentlyDisplayedBrandItems(null);
     setCurrentLoadingMessage("Analyzing image...");
   }, []);
 
@@ -259,7 +264,6 @@ export default function StyleSeerPage() {
     });
     setIsLoading(false);
     setIsSpecificItemsLoading(false);
-    setCurrentlyDisplayedBrandItems(null);
     setError(null);
   }, []);
 
@@ -304,8 +308,37 @@ export default function StyleSeerPage() {
 
         <main className="flex-1 flex flex-col overflow-y-auto">
           <div className="container mx-auto px-4 py-8 md:py-12 flex-grow">
-
-            <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
+            {!isLoading && !analysis && (
+              <div className="flex flex-col items-center">
+                  <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
+                  <div className="mt-4 w-full max-w-sm">
+                      <Label htmlFor="country-input" className="text-sm font-medium text-muted-foreground">
+                          Country of Residence
+                      </Label>
+                      <Input
+                          id="country-input"
+                          type="text"
+                          value={country}
+                          onChange={(e) => setCountry(e.target.value)}
+                          placeholder="e.g., United States, United Kingdom, Canada"
+                          className="mt-1"
+                      />
+                  </div>
+                  <div className="mt-4 w-full max-w-sm">
+                      <Label htmlFor="num-items-input" className="text-sm font-medium text-muted-foreground">
+                          Number of Similar Items
+                      </Label>
+                      <Input
+                          id="num-items-input"
+                          type="number"
+                          value={numSimilarItems}
+                          onChange={(e) => setNumSimilarItems(parseInt(e.target.value, 10))}
+                          placeholder="e.g., 5"
+                          className="mt-1"
+                      />
+                  </div>
+              </div>
+            )}
 
             {isLoading && (
               <div className="mt-10">
@@ -332,9 +365,7 @@ export default function StyleSeerPage() {
                   approximatedBrands={analysis.approximatedBrands}
                   alternativeBrands={analysis.alternativeBrands}
                   similarItems={analysis.similarItems}
-                  onBrandHover={handleBrandHover}
                   isSpecificItemsLoading={isSpecificItemsLoading}
-                  currentlyDisplayedBrandItems={currentlyDisplayedBrandItems}
                 />
                 <div className="mt-10 text-center">
                   <Button onClick={handleReset} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">

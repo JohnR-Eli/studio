@@ -3,24 +3,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info, Sparkles, Loader2, SearchCheck } from 'lucide-react';
 import NextImage from 'next/image';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { SimilarItem as GenkitSimilarItemBase } from '@/ai/flows/find-similar-items';
-import { Button } from '@/components/ui/button'; 
 
-interface SimilarItem extends Omit<GenkitSimilarItemBase, 'itemImageDataUri'> {}
+interface SimilarItem {
+    itemTitle: string;
+    itemDescription: string;
+    vendorLink: string;
+    imageURL: string;
+}
 
 interface AnalysisResultsProps {
   imagePreview: string | null;
   clothingItems?: string[];
   genderDepartment?: string;
-  identifiedBrand?: string; // Changed from brand
+  identifiedBrand?: string;
   brandIsExplicit?: boolean;
-  approximatedBrands?: string[]; // New prop
+  approximatedBrands?: string[];
   alternativeBrands?: string[];
   similarItems?: SimilarItem[];
-  onBrandHover: (brandName: string) => void;
   isSpecificItemsLoading: boolean;
-  currentlyDisplayedBrandItems: string | null; 
 }
 
 export default function AnalysisResults({
@@ -32,9 +32,7 @@ export default function AnalysisResults({
   approximatedBrands,
   alternativeBrands,
   similarItems,
-  onBrandHover,
   isSpecificItemsLoading,
-  currentlyDisplayedBrandItems,
 }: AnalysisResultsProps) {
   const hasAnyDataToShow = imagePreview || 
                            (clothingItems && clothingItems.length > 0) || 
@@ -53,10 +51,6 @@ export default function AnalysisResults({
                                   !!genderDepartment;
 
   const hasAlternativeBrandsToExplore = alternativeBrands && alternativeBrands.length > 0;
-
-  const similarItemsTitle = currentlyDisplayedBrandItems 
-    ? `Style Suggestions from ${currentlyDisplayedBrandItems}` 
-    : "Style Suggestions";
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
@@ -137,16 +131,6 @@ export default function AnalysisResults({
                  <CardHeader>
                    <CardTitle className="flex items-center gap-2 text-xl">
                      <SearchCheck size={24} className="text-primary" /> Brand Approximations (AI Suggestion)
-                      <TooltipProvider>
-                        <Tooltip delayDuration={100}>
-                          <TooltipTrigger asChild>
-                            <Info size={16} className="text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs bg-popover text-popover-foreground p-2 rounded-md shadow-lg border">
-                            <p className="text-xs">No single brand was explicitly visible. These are AI-suggested approximations from our preferred list based on style.</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
                    </CardTitle>
                  </CardHeader>
                  <CardContent>
@@ -167,21 +151,11 @@ export default function AnalysisResults({
                 <CardTitle className="flex items-center gap-2 text-xl">
                 <Sparkles size={24} className="text-primary" /> Alternative Brands (Similar Style)
                 </CardTitle>
-                <CardDescription>Hover over a brand to see style suggestions from them below.</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="flex flex-wrap gap-2">
                 {alternativeBrands?.map((altBrand, index) => (
-                    <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        onMouseEnter={() => onBrandHover(altBrand)}
-                        className={`text-sm px-3 py-1.5 shadow-sm hover:bg-accent hover:text-accent-foreground focus:ring-2 focus:ring-ring ${currentlyDisplayedBrandItems === altBrand ? 'bg-accent text-accent-foreground' : ''}`}
-                        aria-label={`Show items from ${altBrand}`}
-                    >
-                        {altBrand}
-                    </Button>
+                    <Badge key={index} variant="outline" className="text-sm px-3 py-1.5 shadow-sm">{altBrand}</Badge>
                 ))}
                 </div>
             </CardContent>
@@ -192,54 +166,33 @@ export default function AnalysisResults({
         <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl lg:col-span-full">
             <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl">
-                <ShoppingBag size={24} className="text-primary" /> {similarItemsTitle}
+                <ShoppingBag size={24} className="text-primary" /> Style Suggestions
             </CardTitle>
-            {!isSpecificItemsLoading && (!similarItems || similarItems.length === 0) && (
-                 <CardDescription>
-                    {currentlyDisplayedBrandItems 
-                        ? `No specific style suggestions found for ${currentlyDisplayedBrandItems} at the moment.`
-                        : (hasAlternativeBrandsToExplore ? "Hover over an alternative brand above to see style suggestions." : "No alternative brands identified to explore for suggestions.")}
-                 </CardDescription>
-            )}
             </CardHeader>
             <CardContent>
                 {isSpecificItemsLoading && (
                     <div className="flex items-center justify-center py-6">
                         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="ml-3 text-muted-foreground">Loading suggestions for {currentlyDisplayedBrandItems}...</p>
+                        <p className="ml-3 text-muted-foreground">Loading suggestions...</p>
                     </div>
                 )}
                 {!isSpecificItemsLoading && similarItems && similarItems.length > 0 && (
-                    <TooltipProvider delayDuration={100}>
-                        <ul className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {similarItems.map((item, index) => (
-                        <li key={index} className="p-3 border rounded-md shadow-sm bg-card hover:bg-muted/40 transition-colors">
-                            <Tooltip>
-                            <TooltipTrigger asChild>
-                                <a
-                                href={item.vendorLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block group"
-                                >
-                                <p className="font-semibold text-md mb-1.5 text-foreground group-hover:text-accent transition-colors">{item.itemTitle}</p>
-                                <div className="flex items-center gap-1.5 text-sm text-accent/80 group-hover:text-accent transition-colors">
-                                    <ExternalLink size={16} />
-                                    <span className="underline group-hover:no-underline truncate">
-                                    View on {new URL(item.vendorLink).hostname.replace('www.','')}
-                                    </span>
-                                </div>
-                                </a>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" align="start" className="max-w-xs bg-popover text-popover-foreground p-3 rounded-md shadow-lg border">
-                                <p className="text-sm font-semibold mb-1">{item.itemTitle}</p>
-                                <p className="text-sm">{item.itemDescription}</p>
-                            </TooltipContent>
-                            </Tooltip>
-                        </li>
+                            <a href={item.vendorLink} key={index} target="_blank" rel="noopener noreferrer" className="block group">
+                                <Card className="overflow-hidden">
+                                    <div className="aspect-[4/5] relative w-full bg-muted/30">
+                                        <NextImage
+                                            src={item.imageURL}
+                                            alt={item.itemTitle}
+                                            fill
+                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                        />
+                                    </div>
+                                </Card>
+                            </a>
                         ))}
-                        </ul>
-                    </TooltipProvider>
+                    </div>
                 )}
             </CardContent>
         </Card>

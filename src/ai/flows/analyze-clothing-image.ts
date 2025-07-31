@@ -30,9 +30,15 @@ const preferredBrandsForStyleApproximation = [
   "onehanesplace.com", "Jansport", "Kut from the Kloth", "Maidenform", "UGG US"
 ];
 
+const clothingCategories = [
+    "Top", "Tops", "Clothing", "Bottom", "Bottoms", "Pants", "Footwear", "Shoes",
+    "Activewear", "Outerwear", "Sweaters", "Accessory", "Accessories",
+    "TShirts", "Jeans", "Hats", "Headware", "Sweatshirts"
+];
+
 const AnalyzeClothingImageOutputSchema = z.object({
   clothingItems: z.array(z.string()).describe('List of clothing items or categories detected in the image (e.g., "T-Shirt", "Jeans", "Sneakers").'),
-  genderDepartment: z.string().describe("The gender department the clothing items primarily belong to. This must be strictly one of: \"Men's\", \"Women's\", or \"Unisex\"."),
+  genderDepartment: z.enum(["Male", "Female", "Unisex"]).describe("The gender department the clothing items primarily belong to. This must be strictly one of: Male, Female, or Unisex."),
   identifiedBrand: z.string().optional().describe('The brand name if explicitly identified by a logo/tag. If not explicitly identified, this field should be null or undefined.'),
   brandIsExplicit: z.boolean().describe('True if `identifiedBrand` is populated due to an explicit logo/tag being visible on the item. False otherwise.'),
   approximatedBrands: z.array(z.string()).describe("If 'brandIsExplicit' is false, this list will contain up to 5 brands from the preferred list that are stylistic approximations to the item(s) in the image. If 'brandIsExplicit' is true, this list must be empty."),
@@ -56,8 +62,8 @@ const prompt = ai.definePrompt({
   output: {schema: AnalyzeClothingImageOutputSchema},
   prompt: `You are an AI fashion assistant, this is your last chance to keep this job. Analyze the clothing in the image and provide the following information:
 
-- 'clothingItems': A list of the clothing items or categories present in the image (e.g., "T-Shirt", "Dress", "Hoodie").
-- 'genderDepartment': The gender department the clothing items primarily belong to. This must be strictly one of: "Men's", "Women's", or "Unisex".
+- 'clothingItems': A list of the clothing items or categories present in the image. This must be strictly one of the following: ${clothingCategories.join(', ')}.
+- 'genderDepartment': The gender department the clothing items primarily belong to. This must be strictly one of: "Male", "Female", or "Unisex".
 
 Brand Identification:
 - Carefully examine the image for any explicit brand indicators like logos, tags, or highly distinctive, brand-specific design elements.
