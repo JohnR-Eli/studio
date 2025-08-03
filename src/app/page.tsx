@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { findComplementaryItems, ComplementaryItem } from '@/ai/flows/find-complementary-items';
-import { callExternalApi, ApiResponse } from '@/ai/flows/call-external-api';
+import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
 import { AlertCircle, RotateCcw, History as HistoryIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,12 +27,7 @@ const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisRe
   ssr: false
 });
 
-type SimilarItem = {
-    itemTitle: string;
-    itemDescription: string;
-    vendorLink: string;
-    imageURL: string;
-};
+type SimilarItem = FindSimilarItemsOutput['similarItems'][0] & { imageURL?: string };
 
 type AnalysisState = Omit<AnalyzeClothingImageOutput, 'brandIsExplicit'> & 
                      Partial<Pick<AnalyzeClothingImageOutput, 'identifiedBrand' | 'brandIsExplicit' | 'approximatedBrands' | 'alternativeBrands'>> & {
@@ -52,7 +47,7 @@ export type LogEntry = {
   id: string;
   timestamp: string;
   event: 'invoke' | 'response' | 'error';
-  flow: 'analyzeClothingImage' | 'callExternalApi' | 'findComplementaryItems';
+  flow: 'analyzeClothingImage' | 'findSimilarItems' | 'findComplementaryItems';
   data: any;
 };
 
@@ -204,15 +199,18 @@ export default function StyleSeerPage() {
         };
         setAnalysis(currentAnalysis);
         
-        const brandToFetch = clothingAnalysisResult.identifiedBrand || (clothingAnalysisResult.approximatedBrands && clothingAnalysisResult.approximatedBrands[0]);
+        const brandToFetch = (clothingAnalysisResult.identifiedBrand && clothingAnalysisResult.identifiedBrand !== "null") 
+            ? clothingAnalysisResult.identifiedBrand 
+            : (clothingAnalysisResult.approximatedBrands && clothingAnalysisResult.approximatedBrands[0]);
 
-        if (brandToFetch) {
-            handleBrandSelect(brandToFetch, currentAnalysis.clothingItems[0], currentAnalysis.genderDepartment);
+
+        if (brandToFetch && clothingAnalysisResult.clothingItems.length > 0) {
+            handleBrandSelect(brandToFetch, clothingAnalysisResult.clothingItems[0], currentAnalysis.genderDepartment, dataUri);
         }
 
         // Fetch complementary items
         const compInput = {
-            originalClothingCategory: clothingAnalysisResult.clothingItems[0],
+            originalClothingCategories: clothingAnalysisResult.clothingItems,
             gender: clothingAnalysisResult.genderDepartment,
             country: country,
         };
@@ -263,29 +261,31 @@ export default function StyleSeerPage() {
     }
   }, [addLog, country]);
 
-  const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string) => {
+  const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string, photoDataUri: string) => {
     setIsSpecificItemsLoading(true);
 
-    const inputPayload = { howMany: numSimilarItems, category, brand: brandName, gender, country };
-    addLog({ event: 'invoke', flow: 'callExternalApi', data: inputPayload });
+    const inputPayload = {
+      photoDataUri: photoDataUri.substring(0, 50) + '...',
+      clothingItem: category,
+      targetBrandName: brandName,
+      country,
+      numSimilarItems,
+    };
+    addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
 
     try {
-      const apiResponse = await callExternalApi(
+      const result = await findSimilarItems({
+        photoDataUri,
+        clothingItem: category,
+        targetBrandName: brandName,
+        country,
         numSimilarItems,
-        category,
-        brandName,
-        gender,
-        country
-      );
+      });
 
-      addLog({ event: 'response', flow: 'callExternalApi', data: apiResponse });
+      addLog({ event: 'response', flow: 'findSimilarItems', data: result });
+      
+      const newSimilarItems = result.similarItems.map(item => ({ ...item, imageURL: 'https://placehold.co/400x500.png' }));
 
-      const newSimilarItems = apiResponse.imageURLs.map((imageUrl, index) => ({
-          itemTitle: 'Similar Item',
-          itemDescription: 'Click to view product page.',
-          vendorLink: apiResponse.URLs[index],
-          imageURL: imageUrl,
-      }));
 
       setAnalysis(prevAnalysis => ({
         ...prevAnalysis!,
@@ -294,7 +294,7 @@ export default function StyleSeerPage() {
 
       setError(null);
     } catch (e: any) {
-      addLog({ event: 'error', flow: 'callExternalApi', data: e.message });
+      addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
       console.error(`Error fetching items for brand ${brandName}:`, e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
       setError(`Could not fetch items for ${brandName}: ${errorMessage}`);

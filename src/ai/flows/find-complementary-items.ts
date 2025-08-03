@@ -13,7 +13,7 @@ import {z} from 'genkit';
 import { callExternalApi } from './call-external-api';
 
 const FindComplementaryItemsInputSchema = z.object({
-  originalClothingCategory: z.string().describe('The category of the original clothing item (e.g., "T-Shirt", "Jeans").'),
+  originalClothingCategories: z.array(z.string()).describe('The categories of the original clothing items (e.g., ["T-Shirt", "Outerwear"]).'),
   gender: z.enum(["Male", "Female", "Unisex"]).describe("The gender department for the recommendations."),
   country: z.string().optional().describe('The country for sourcing items.'),
   numItemsPerCategory: z.number().optional().default(2).describe('Number of items to find for each complementary category.'),
@@ -73,10 +73,21 @@ const findComplementaryItemsFlow = ai.defineFlow(
     inputSchema: FindComplementaryItemsInputSchema,
     outputSchema: FindComplementaryItemsOutputSchema,
   },
-  async ({ originalClothingCategory, gender, country = 'United States', numItemsPerCategory = 2 }): Promise<FindComplementaryItemsOutput> => {
+  async ({ originalClothingCategories, gender, country = 'United States', numItemsPerCategory = 2 }): Promise<FindComplementaryItemsOutput> => {
     const complementaryItems: ComplementaryItem[] = [];
     
-    const categoriesToFind = complementaryCategoriesMap[originalClothingCategory] || ["Shoes", "Accessories"];
+    // Get all potential complementary categories from the map for each original category.
+    const potentialCategories = originalClothingCategories.flatMap(originalCategory => complementaryCategoriesMap[originalCategory] || []);
+    
+    // Filter out duplicates and categories that were in the original list.
+    const categoriesToFind = [...new Set(potentialCategories)]
+        .filter(category => !originalClothingCategories.includes(category));
+    
+    // If no categories are left after filtering, fall back to some defaults.
+    if (categoriesToFind.length === 0) {
+        categoriesToFind.push("Shoes", "Accessories");
+    }
+
 
     for (const category of categoriesToFind) {
       const randomBrand = preferredBrandsForStyleApproximation[Math.floor(Math.random() * preferredBrandsForStyleApproximation.length)];
