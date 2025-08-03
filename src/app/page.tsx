@@ -82,7 +82,9 @@ export default function StyleSeerPage() {
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
   const [country, setCountry] = useState('United States');
   const [numSimilarItems, setNumSimilarItems] = useState(5);
+  const [numItemsInput, setNumItemsInput] = useState('5');
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'>) => {
     setLogs(prev => [...prev, {
@@ -318,6 +320,22 @@ export default function StyleSeerPage() {
     }
   };
 
+  const handleNumItemsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNumItemsInput(value);
+
+    if (value.toLowerCase() === 'debug') {
+      setShowDebugPanel(true);
+    } else {
+      setShowDebugPanel(false);
+      const parsedValue = parseInt(value, 10);
+      if (!isNaN(parsedValue) && parsedValue > 0) {
+        setNumSimilarItems(parsedValue);
+      }
+    }
+  };
+
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Header />
@@ -379,9 +397,9 @@ export default function StyleSeerPage() {
                       </Label>
                       <Input
                           id="num-items-input"
-                          type="number"
-                          value={numSimilarItems}
-                          onChange={(e) => setNumSimilarItems(parseInt(e.target.value, 10))}
+                          type="text"
+                          value={numItemsInput}
+                          onChange={handleNumItemsChange}
                           placeholder="e.g., 5"
                           className="mt-1"
                       />
@@ -432,7 +450,9 @@ export default function StyleSeerPage() {
           </footer>
         </main>
       </div>
-      <DebugPanel logs={logs} />
+      {showDebugPanel && <DebugPanel logs={logs} />}
     </div>
   );
 }
+
+    
