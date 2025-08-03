@@ -88,11 +88,12 @@ const findComplementaryItemsFlow = ai.defineFlow(
         categoriesToFind.push("Shoes", "Accessories");
     }
 
+    const numToFetch = numItemsPerCategory || 2;
 
     for (const category of categoriesToFind) {
       const randomBrand = preferredBrandsForStyleApproximation[Math.floor(Math.random() * preferredBrandsForStyleApproximation.length)];
       try {
-        const apiResponse = await callExternalApi(numItemsPerCategory, category, randomBrand, gender, country);
+        const apiResponse = await callExternalApi(numToFetch, category, randomBrand, gender, country);
         
         const items = apiResponse.imageURLs.map((imageUrl, index) => ({
           category: category,
