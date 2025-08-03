@@ -4,7 +4,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/style-seer/ImageUpload';
-// import AnalysisResults from '@/components/style-seer/AnalysisResults'; // Removed direct import
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import SearchHistory from '@/components/style-seer/SearchHistory';
@@ -19,11 +18,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import DebugPanel from '@/components/style-seer/DebugPanel';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
   loading: () => <div className="mt-10"><LoadingSpinner message="Loading results area..." /></div>,
-  ssr: false // Optional: If the component doesn't need SSR or has browser-specific APIs on mount
+  ssr: false
 });
 
 type SimilarItem = {
@@ -57,6 +57,19 @@ export type LogEntry = {
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_KEY = 'fittedToolSearchHistory';
 const HISTORY_PREFERENCE_KEY = 'fittedToolSaveHistoryPreference';
+
+const topCountries = [
+    "United States",
+    "United Kingdom",
+    "Canada",
+    "Australia",
+    "Germany",
+    "France",
+    "Japan",
+    "India",
+    "Brazil",
+    "China"
+];
 
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -344,17 +357,21 @@ export default function StyleSeerPage() {
               <div className="flex flex-col items-center">
                   <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
                   <div className="mt-4 w-full max-w-sm">
-                      <Label htmlFor="country-input" className="text-sm font-medium text-muted-foreground">
+                      <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">
                           Country of Residence
                       </Label>
-                      <Input
-                          id="country-input"
-                          type="text"
-                          value={country}
-                          onChange={(e) => setCountry(e.target.value)}
-                          placeholder="e.g., United States, United Kingdom, Canada"
-                          className="mt-1"
-                      />
+                      <Select value={country} onValueChange={setCountry}>
+                        <SelectTrigger id="country-select" className="mt-1">
+                            <SelectValue placeholder="Select a country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {topCountries.map((c) => (
+                                <SelectItem key={c} value={c}>
+                                    {c}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
                   </div>
                   <div className="mt-4 w-full max-w-sm">
                       <Label htmlFor="num-items-input" className="text-sm font-medium text-muted-foreground">
