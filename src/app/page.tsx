@@ -18,6 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import DebugPanel from '@/components/style-seer/DebugPanel';
+
 
 const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
   loading: () => <div className="mt-10"><LoadingSpinner message="Loading results area..." /></div>,
@@ -44,6 +46,14 @@ export type HistoryEntry = {
   analysisResult: AnalysisState; 
 };
 
+export type LogEntry = {
+  id: string;
+  timestamp: string;
+  event: 'invoke' | 'response' | 'error';
+  flow: 'analyzeClothingImage' | 'callExternalApi';
+  data: any;
+};
+
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_KEY = 'fittedToolSearchHistory';
 const HISTORY_PREFERENCE_KEY = 'fittedToolSaveHistoryPreference';
@@ -59,6 +69,15 @@ export default function StyleSeerPage() {
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
   const [country, setCountry] = useState('United States');
   const [numSimilarItems, setNumSimilarItems] = useState(5);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'>) => {
+    setLogs(prev => [...prev, {
+        id: new Date().toISOString() + Math.random(),
+        timestamp: new Date().toISOString(),
+        ...log
+    }]);
+  }, []);
 
   useEffect(() => {
     let initialPreference = false;
@@ -155,8 +174,12 @@ export default function StyleSeerPage() {
     setIsSpecificItemsLoading(false);
     setCurrentLoadingMessage("Analyzing image details...");
 
+    const inputPayload = { photoDataUri: dataUri.substring(0, 50) + '...' }; // Truncate for logging
+    addLog({ event: 'invoke', flow: 'analyzeClothingImage', data: inputPayload });
+
     try {
       const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri });
+      addLog({ event: 'response', flow: 'analyzeClothingImage', data: clothingAnalysisResult || "No result" });
 
       if (clothingAnalysisResult) {
         const currentAnalysis: AnalysisState = {
@@ -191,6 +214,7 @@ export default function StyleSeerPage() {
         setAnalysis(null);
       }
     } catch (e: any) {
+      addLog({ event: 'error', flow: 'analyzeClothingImage', data: e.message });
       console.error("Analysis Error:", e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred during image processing.";
       if (errorMessage.toLowerCase().includes("model") && (errorMessage.toLowerCase().includes("not found") || errorMessage.toLowerCase().includes("cannot be accessed"))) {
@@ -206,10 +230,13 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [addLog]);
 
   const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string) => {
     setIsSpecificItemsLoading(true);
+
+    const inputPayload = { howMany: numSimilarItems, category, brand: brandName, gender, country };
+    addLog({ event: 'invoke', flow: 'callExternalApi', data: inputPayload });
 
     try {
       const apiResponse = await callExternalApi(
@@ -219,6 +246,8 @@ export default function StyleSeerPage() {
         gender,
         country
       );
+
+      addLog({ event: 'response', flow: 'callExternalApi', data: apiResponse });
 
       const newSimilarItems = apiResponse.imageURLs.map((imageUrl, index) => ({
           itemTitle: 'Similar Item',
@@ -234,6 +263,7 @@ export default function StyleSeerPage() {
 
       setError(null);
     } catch (e: any) {
+      addLog({ event: 'error', flow: 'callExternalApi', data: e.message });
       console.error(`Error fetching items for brand ${brandName}:`, e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
       setError(`Could not fetch items for ${brandName}: ${errorMessage}`);
@@ -244,7 +274,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsSpecificItemsLoading(false);
     }
-  }, [country, numSimilarItems]);
+  }, [country, numSimilarItems, addLog]);
 
 
   const handleReset = useCallback(() => {
@@ -254,6 +284,7 @@ export default function StyleSeerPage() {
     setIsLoading(false);
     setIsSpecificItemsLoading(false);
     setCurrentLoadingMessage("Analyzing image...");
+    setLogs([]);
   }, []);
 
   const handleSelectHistoryItem = useCallback((entry: HistoryEntry) => {
@@ -265,6 +296,7 @@ export default function StyleSeerPage() {
     setIsLoading(false);
     setIsSpecificItemsLoading(false);
     setError(null);
+    setLogs([]);
   }, []);
 
   const handleSaveHistoryPreferenceChange = (checked: boolean | 'indeterminate') => {
@@ -383,6 +415,7 @@ export default function StyleSeerPage() {
           </footer>
         </main>
       </div>
+      <DebugPanel logs={logs} />
     </div>
   );
 }
