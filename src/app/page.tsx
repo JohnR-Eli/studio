@@ -80,6 +80,7 @@ export default function StyleSeerPage() {
   const [country, setCountry] = useState('United States');
   const [numSimilarItems, setNumSimilarItems] = useState(5);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'>) => {
     setLogs(prev => [...prev, {
@@ -342,10 +343,14 @@ export default function StyleSeerPage() {
       setNumSimilarItems(value);
     }
   };
+  
+  const toggleDebugPanel = () => {
+    setShowDebugPanel(prev => !prev);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      <Header />
+      <Header onIconClick={toggleDebugPanel} />
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-72 md:w-80 lg:w-96 flex-shrink-0 border-r border-border/60 bg-card p-4 hidden md:flex flex-col overflow-y-auto">
           <Card className="flex-1 flex flex-col overflow-hidden shadow-md">
@@ -458,7 +463,7 @@ export default function StyleSeerPage() {
           </footer>
         </main>
       </div>
-      <DebugPanel logs={logs} />
+      {showDebugPanel && <DebugPanel logs={logs} />}
     </div>
   );
 }
