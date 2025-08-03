@@ -1,12 +1,19 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info, Sparkles, Loader2, SearchCheck } from 'lucide-react';
+import { ExternalLink, Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Info, Sparkles, Loader2, SearchCheck, Puzzle } from 'lucide-react';
 import NextImage from 'next/image';
 
 interface SimilarItem {
     itemTitle: string;
     itemDescription: string;
+    vendorLink: string;
+    imageURL: string;
+}
+
+interface ComplementaryItem {
+    category: string;
+    itemTitle: string;
     vendorLink: string;
     imageURL: string;
 }
@@ -20,6 +27,7 @@ interface AnalysisResultsProps {
   approximatedBrands?: string[];
   alternativeBrands?: string[];
   similarItems?: SimilarItem[];
+  complementaryItems?: ComplementaryItem[];
   isSpecificItemsLoading: boolean;
 }
 
@@ -32,6 +40,7 @@ export default function AnalysisResults({
   approximatedBrands,
   alternativeBrands,
   similarItems,
+  complementaryItems,
   isSpecificItemsLoading,
 }: AnalysisResultsProps) {
   const hasAnyDataToShow = imagePreview || 
@@ -196,6 +205,39 @@ export default function AnalysisResults({
                 )}
             </CardContent>
         </Card>
+
+        {/* Complementary Items Section */}
+        {complementaryItems && complementaryItems.length > 0 && (
+          <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl lg:col-span-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <Puzzle size={24} className="text-primary" /> Complete the Look
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {complementaryItems.map((item, index) => (
+                  <a href={item.vendorLink} key={index} target="_blank" rel="noopener noreferrer" className="block group">
+                    <Card className="overflow-hidden">
+                      <div className="aspect-[4/5] relative w-full bg-muted/30">
+                        <NextImage
+                          src={item.imageURL}
+                          alt={item.itemTitle}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
+                      <div className='p-2 text-center'>
+                        <p className="text-xs font-semibold truncate">{item.itemTitle}</p>
+                        <Badge variant="secondary" className="mt-1 text-xs">{item.category}</Badge>
+                      </div>
+                    </Card>
+                  </a>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

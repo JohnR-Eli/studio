@@ -10,6 +10,7 @@ import SearchHistory from '@/components/style-seer/SearchHistory';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
+import { findComplementaryItems, ComplementaryItem } from '@/ai/flows/find-complementary-items';
 import { callExternalApi, ApiResponse } from '@/ai/flows/call-external-api';
 import { AlertCircle, RotateCcw, History as HistoryIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -36,6 +37,7 @@ type SimilarItem = {
 type AnalysisState = Omit<AnalyzeClothingImageOutput, 'brandIsExplicit'> & 
                      Partial<Pick<AnalyzeClothingImageOutput, 'identifiedBrand' | 'brandIsExplicit' | 'approximatedBrands' | 'alternativeBrands'>> & {
   similarItems?: SimilarItem[];
+  complementaryItems?: ComplementaryItem[];
 };
 
 
@@ -50,7 +52,7 @@ export type LogEntry = {
   id: string;
   timestamp: string;
   event: 'invoke' | 'response' | 'error';
-  flow: 'analyzeClothingImage' | 'callExternalApi';
+  flow: 'analyzeClothingImage' | 'callExternalApi' | 'findComplementaryItems';
   data: any;
 };
 
@@ -198,6 +200,7 @@ export default function StyleSeerPage() {
         const currentAnalysis: AnalysisState = {
           ...clothingAnalysisResult, 
           similarItems: [], 
+          complementaryItems: [],
         };
         setAnalysis(currentAnalysis);
         
@@ -206,6 +209,21 @@ export default function StyleSeerPage() {
         if (brandToFetch) {
             handleBrandSelect(brandToFetch, currentAnalysis.clothingItems[0], currentAnalysis.genderDepartment);
         }
+
+        // Fetch complementary items
+        const compInput = {
+            originalClothingCategory: clothingAnalysisResult.clothingItems[0],
+            gender: clothingAnalysisResult.genderDepartment,
+            country: country,
+        };
+        addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
+        findComplementaryItems(compInput).then(compResult => {
+            addLog({ event: 'response', flow: 'findComplementaryItems', data: compResult });
+            setAnalysis(prev => prev ? ({ ...prev, complementaryItems: compResult.complementaryItems }) : null);
+        }).catch(e => {
+            addLog({ event: 'error', flow: 'findComplementaryItems', data: e.message });
+        });
+
 
         const { similarItems, ...historyAnalysisData } = currentAnalysis;
         
@@ -243,7 +261,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog]);
+  }, [addLog, country]);
 
   const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string) => {
     setIsSpecificItemsLoading(true);
@@ -421,6 +439,7 @@ export default function StyleSeerPage() {
                   approximatedBrands={analysis.approximatedBrands}
                   alternativeBrands={analysis.alternativeBrands}
                   similarItems={analysis.similarItems}
+                  complementaryItems={analysis.complementaryItems}
                   isSpecificItemsLoading={isSpecificItemsLoading}
                 />
                 <div className="mt-10 text-center">
