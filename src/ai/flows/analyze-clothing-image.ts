@@ -60,10 +60,13 @@ const prompt = ai.definePrompt({
   name: 'analyzeClothingImagePrompt',
   input: {schema: AnalyzeClothingImageInputSchema},
   output: {schema: AnalyzeClothingImageOutputSchema},
-  prompt: `You are an AI fashion assistant, this is your last chance to keep this job. Analyze the clothing in the image and provide the following information:
+  prompt: `You are an AI fashion assistant with an expert eye for detail. Analyze the clothing in the image and provide the following information:
 
 - 'clothingItems': A list of the clothing items or categories present in the image. This must be strictly one of the following: ${clothingCategories.join(', ')}.
-- 'genderDepartment': The gender department the clothing items primarily belong to. This must be strictly one of: "Male", "Female", or "Unisex".
+- 'genderDepartment': Determine the primary gender department for the clothing. Critically evaluate the item's cut, style, and form.
+    - If the item's design strongly suggests a specific gender (e.g., a dress, a tailored suit), you must classify it as "Male" or "Female".
+    - Reserve the "Unisex" classification for items that are genuinely and commonly marketed to both genders without significant stylistic changes (e.g., basic crewneck T-shirts, many sneakers, beanies).
+    - If an item has a style that leans towards one gender, even if it could be worn by anyone, choose the gender it is primarily marketed towards. For example, a floral blouse should be "Female" even if a male could wear it. A boxy, oversized hoodie might be "Unisex". Do not default to "Unisex" out of caution; make a specific choice based on the evidence in the image.
 
 Brand Identification:
 - Carefully examine the image for any explicit brand indicators like logos, tags, or highly distinctive, brand-specific design elements.
