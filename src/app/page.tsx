@@ -10,7 +10,7 @@ import SearchHistory from '@/components/style-seer/SearchHistory';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
-import { findComplementaryItems, ComplementaryItem } from '@/ai/flows/find-complementary-items';
+import { findComplementaryItems, ComplementaryItem, FindComplementaryItemsOutput } from '@/ai/flows/find-complementary-items';
 import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
 import { AlertCircle, RotateCcw, History as HistoryIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -47,7 +47,7 @@ export type LogEntry = {
   id: string;
   timestamp: string;
   event: 'invoke' | 'response' | 'error';
-  flow: 'analyzeClothingImage' | 'findSimilarItems' | 'findComplementaryItems';
+  flow: 'analyzeClothingImage' | 'findSimilarItems' | 'findComplementaryItems' | 'callExternalApi';
   data: any;
 };
 
@@ -82,12 +82,14 @@ export default function StyleSeerPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
-  const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'>) => {
-    setLogs(prev => [...prev, {
+  const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
+    const logsToAdd = Array.isArray(log) ? log : [log];
+    const newLogs = logsToAdd.map(l => ({
         id: new Date().toISOString() + Math.random(),
         timestamp: new Date().toISOString(),
-        ...log
-    }]);
+        ...l
+    }));
+    setLogs(prev => [...prev, ...newLogs]);
   }, []);
 
   useEffect(() => {
@@ -165,7 +167,7 @@ export default function StyleSeerPage() {
       }
     }
   }, [searchHistory, saveHistoryPreference]);
-
+  
   const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string, photoDataUri: string) => {
     setIsSpecificItemsLoading(true);
 
@@ -187,9 +189,12 @@ export default function StyleSeerPage() {
         numSimilarItems,
       });
 
-      addLog({ event: 'response', flow: 'findSimilarItems', data: result });
+      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: result.similarItems } });
+      if (result.logs) {
+        addLog(result.logs);
+      }
       
-      const newSimilarItems = result.similarItems.map(item => ({ ...item, imageURL: 'https://placehold.co/400x500.png' }));
+      const newSimilarItems = result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }));
 
 
       setAnalysis(prevAnalysis => ({
@@ -263,7 +268,10 @@ export default function StyleSeerPage() {
         };
         addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
         findComplementaryItems(compInput).then(compResult => {
-            addLog({ event: 'response', flow: 'findComplementaryItems', data: compResult });
+            addLog({ event: 'response', flow: 'findComplementaryItems', data: { complementaryItems: compResult.complementaryItems } });
+            if (compResult.logs) {
+              addLog(compResult.logs);
+            }
             setAnalysis(prev => prev ? ({ ...prev, complementaryItems: compResult.complementaryItems }) : null);
         }).catch(e => {
             addLog({ event: 'error', flow: 'findComplementaryItems', data: e.message });

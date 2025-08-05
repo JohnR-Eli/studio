@@ -11,6 +11,8 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { callExternalApi } from './call-external-api';
+import { LogEntry } from '@/app/page';
+
 
 const FindComplementaryItemsInputSchema = z.object({
   originalClothingCategories: z.array(z.string()).describe('The categories of the original clothing items (e.g., ["T-Shirt", "Outerwear"]).'),
@@ -30,6 +32,7 @@ export type ComplementaryItem = z.infer<typeof ComplementaryItemSchema>;
 
 const FindComplementaryItemsOutputSchema = z.object({
   complementaryItems: z.array(ComplementaryItemSchema).describe('A list of complementary clothing items.'),
+  logs: z.array(z.custom<Omit<LogEntry, 'id' | 'timestamp'>>()).optional(),
 });
 export type FindComplementaryItemsOutput = z.infer<typeof FindComplementaryItemsOutputSchema>;
 
@@ -75,6 +78,7 @@ const findComplementaryItemsFlow = ai.defineFlow(
   },
   async ({ originalClothingCategories, gender, country = 'United States', numItemsPerCategory = 2 }): Promise<FindComplementaryItemsOutput> => {
     const complementaryItems: ComplementaryItem[] = [];
+    const logs: Omit<LogEntry, 'id' | 'timestamp'>[] = [];
     
     // Get all potential complementary categories from the map for each original category.
     const potentialCategories = originalClothingCategories.flatMap(originalCategory => complementaryCategoriesMap[originalCategory] || []);
@@ -93,7 +97,10 @@ const findComplementaryItemsFlow = ai.defineFlow(
     for (const category of categoriesToFind) {
       const randomBrand = preferredBrandsForStyleApproximation[Math.floor(Math.random() * preferredBrandsForStyleApproximation.length)];
       try {
-        const apiResponse = await callExternalApi(numToFetch, category, randomBrand, gender, country);
+        const apiInput = {howMany: numToFetch, category, brand: randomBrand, gender, country};
+        logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
+        const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
+        logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
         
         const items = apiResponse.imageURLs.map((imageUrl, index) => ({
           category: category,
@@ -105,10 +112,10 @@ const findComplementaryItemsFlow = ai.defineFlow(
         complementaryItems.push(...items);
       } catch (error) {
         console.error(`Error fetching complementary items for category ${category} and brand ${randomBrand}:`, error);
-        // Continue to next category even if one fails
+        logs.push({ event: 'error', flow: 'callExternalApi', data: { category, randomBrand, error: error instanceof Error ? error.message : String(error) } });
       }
     }
 
-    return { complementaryItems };
+    return { complementaryItems, logs };
   }
 );
