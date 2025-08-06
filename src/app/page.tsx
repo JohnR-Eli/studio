@@ -170,6 +170,7 @@ export default function StyleSeerPage() {
   
   const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string, photoDataUri: string) => {
     setIsSpecificItemsLoading(true);
+    setCurrentLoadingMessage(`Searching for ${category} from ${brandName}...`);
 
     const inputPayload = {
       photoDataUri: photoDataUri.substring(0, 50) + '...',
@@ -214,6 +215,7 @@ export default function StyleSeerPage() {
       }));
     } finally {
       setIsSpecificItemsLoading(false);
+      setCurrentLoadingMessage("Analysis complete.");
     }
   }, [country, numSimilarItems, addLog]);
 
@@ -234,6 +236,7 @@ export default function StyleSeerPage() {
     setIsLoading(true);
     setIsSpecificItemsLoading(false);
     setCurrentLoadingMessage("Analyzing image details...");
+    setLogs([]);
 
     const inputPayload = { photoDataUri: dataUri.substring(0, 50) + '...' }; // Truncate for logging
     addLog({ event: 'invoke', flow: 'analyzeClothingImage', data: inputPayload });
@@ -243,6 +246,7 @@ export default function StyleSeerPage() {
       addLog({ event: 'response', flow: 'analyzeClothingImage', data: clothingAnalysisResult || "No result" });
 
       if (clothingAnalysisResult) {
+        setCurrentLoadingMessage("Image analysis complete. Finding recommendations...");
         const currentAnalysis: AnalysisState = {
           ...clothingAnalysisResult, 
           similarItems: [], 
@@ -260,6 +264,7 @@ export default function StyleSeerPage() {
         }
 
         // Fetch complementary items
+        setCurrentLoadingMessage("Searching for complementary items to complete the look...");
         const compInput = {
             originalClothingCategories: clothingAnalysisResult.clothingItems,
             gender: clothingAnalysisResult.genderDepartment,
