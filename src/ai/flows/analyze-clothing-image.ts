@@ -18,6 +18,7 @@ const AnalyzeClothingImageInputSchema = z.object({
     .describe(
       "A photo of clothing, as a data URI. It must include a MIME type (e.g., 'image/jpeg', 'image/png') and use Base64 encoding for the image data. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
+  genderDepartment: z.enum(["Male", "Female", "Unisex"]).optional().describe("The user-specified gender department for the clothing items. If provided, this should guide the analysis."),
 });
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
 
@@ -64,7 +65,8 @@ const prompt = ai.definePrompt({
 
 - 'clothingItems': A list of the clothing items or categories present in the image. This must be strictly one of the following: ${clothingCategories.join(', ')}.
 - 'genderDepartment': Determine the primary gender department for the clothing. Critically evaluate the item's cut, style, and form.
-    - If the item's design strongly suggests a specific gender (e.g., a dress, a tailored suit), you must classify it as "Male" or "Female".
+    - If the user has specified a gender department ({{genderDepartment}}), you MUST use that value for the 'genderDepartment' output field.
+    - If no gender is specified by the user, you must determine it. If the item's design strongly suggests a specific gender (e.g., a dress, a tailored suit), you must classify it as "Male" or "Female".
     - Reserve the "Unisex" classification for items that are genuinely and commonly marketed to both genders without significant stylistic changes (e.g., basic crewneck T-shirts, many sneakers, beanies).
     - If an item has a style that leans towards one gender, even if it could be worn by anyone, choose the gender it is primarily marketed towards. For example, a floral blouse should be "Female" even if a male could wear it. A boxy, oversized hoodie might be "Unisex". Do not default to "Unisex" out of caution; make a specific choice based on the evidence in the image.
 

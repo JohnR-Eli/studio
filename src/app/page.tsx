@@ -78,6 +78,7 @@ export default function StyleSeerPage() {
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
   const [country, setCountry] = useState('United States');
+  const [genderDepartment, setGenderDepartment] = useState<'Male' | 'Female' | 'Unisex'>('Unisex');
   const [numSimilarItems, setNumSimilarItems] = useState(5);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
@@ -238,11 +239,14 @@ export default function StyleSeerPage() {
     setCurrentLoadingMessage("Analyzing image details...");
     setLogs([]);
 
-    const inputPayload = { photoDataUri: dataUri.substring(0, 50) + '...' }; // Truncate for logging
+    const inputPayload = { 
+      photoDataUri: dataUri.substring(0, 50) + '...',
+      genderDepartment,
+    };
     addLog({ event: 'invoke', flow: 'analyzeClothingImage', data: inputPayload });
 
     try {
-      const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri });
+      const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri, genderDepartment });
       addLog({ event: 'response', flow: 'analyzeClothingImage', data: clothingAnalysisResult || "No result" });
 
       if (clothingAnalysisResult) {
@@ -260,7 +264,7 @@ export default function StyleSeerPage() {
 
 
         if (brandToFetch && clothingAnalysisResult.clothingItems.length > 0) {
-            handleBrandSelect(brandToFetch, clothingAnalysisResult.clothingItems[0], currentAnalysis.genderDepartment, dataUri);
+            handleBrandSelect(brandToFetch, clothingAnalysisResult.clothingItems[0], clothingAnalysisResult.genderDepartment, dataUri);
         }
 
         // Fetch complementary items
@@ -319,7 +323,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect]);
+  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment]);
 
 
   const handleReset = useCallback(() => {
@@ -413,6 +417,21 @@ export default function StyleSeerPage() {
                                     {c}
                                 </SelectItem>
                             ))}
+                        </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="mt-4 w-full max-w-sm">
+                      <Label htmlFor="gender-select" className="text-sm font-medium text-muted-foreground">
+                          Gender Department
+                      </Label>
+                      <Select value={genderDepartment} onValueChange={(value) => setGenderDepartment(value as 'Male' | 'Female' | 'Unisex')}>
+                        <SelectTrigger id="gender-select" className="mt-1">
+                            <SelectValue placeholder="Select a department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Male">Male</SelectItem>
+                            <SelectItem value="Female">Female</SelectItem>
+                            <SelectItem value="Unisex">Unisex</SelectItem>
                         </SelectContent>
                       </Select>
                   </div>
