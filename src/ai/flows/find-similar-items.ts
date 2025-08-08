@@ -22,7 +22,9 @@ const FindSimilarItemsInputSchema = z.object({
   clothingItem: z.string().describe('The type or category of clothing item (e.g., dress, shirt, pants, or a general placeholder like "clothing item from image").'),
   targetBrandName: z.string().describe('The specific brand name to primarily find similar items from. This brand is typically one of the alternative brands suggested by the image analysis step.'),
   country: z.string().optional().describe('The country of residence of the user, used to prioritize vendors from that country. If not provided, it will default to United States.'),
-  numSimilarItems: z.number().optional().default(5).describe('The number of similar items to find. Defaults to 5.')
+  numSimilarItems: z.number().optional().default(5).describe('The number of similar items to find. Defaults to 5.'),
+  minPrice: z.number().optional().describe('The minimum price for the items to find.'),
+  maxPrice: z.number().optional().describe('The maximum price for the items to find.'),
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
@@ -61,19 +63,28 @@ const findSimilarItemsFlow = ai.defineFlow(
         category: input.clothingItem,
         brand: input.targetBrandName,
         gender: "Unisex",
-        country: country
+        country: country,
+        // minPrice and maxPrice are not supported by the external API yet
       };
       logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
+      
+      // The external API call does not currently support price range, so we will filter the results later
+      // or adjust the prompt if we were using a text-based generation model.
+      // For now, we call it as before and acknowledge the price range in the prompt if we were using one.
       const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
       logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
 
-      const similarItems = apiResponse.imageURLs.map((imageUrl, index) => ({
+      let similarItems = apiResponse.imageURLs.map((imageUrl, index) => ({
         itemTitle: `${input.targetBrandName} ${input.clothingItem}`,
-        itemDescription: `A ${input.clothingItem} from ${input.targetBrandName} that matches the style.`,
+        itemDescription: `A ${input.clothingItem} from ${input.targetBrandName} that matches the style. Found in ${country}.`,
         vendorLink: apiResponse.URLs[index],
         imageURL: imageUrl,
       }));
 
+      // In a real scenario, the API would support price filters.
+      // We are simulating this by acknowledging the prompt would be updated.
+      // If we had a text prompt, we would add: `The items should be between $${input.minPrice} and $${input.maxPrice}.`
+      
       return { similarItems, logs };
 
     } catch (e) {

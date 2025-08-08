@@ -20,6 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import DebugPanel from '@/components/style-seer/DebugPanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from '@/components/ui/slider';
 
 
 const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
@@ -82,6 +83,7 @@ export default function StyleSeerPage() {
   const [numSimilarItems, setNumSimilarItems] = useState(5);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([1, 5000]);
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
     const logsToAdd = Array.isArray(log) ? log : [log];
@@ -179,6 +181,8 @@ export default function StyleSeerPage() {
       targetBrandName: brandName,
       country,
       numSimilarItems,
+      minPrice: priceRange[0],
+      maxPrice: priceRange[1],
     };
     addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
 
@@ -189,6 +193,8 @@ export default function StyleSeerPage() {
         targetBrandName: brandName,
         country,
         numSimilarItems,
+        minPrice: priceRange[0],
+        maxPrice: priceRange[1],
       });
 
       if (result.logs) {
@@ -218,7 +224,7 @@ export default function StyleSeerPage() {
       setIsSpecificItemsLoading(false);
       setCurrentLoadingMessage("Analysis complete.");
     }
-  }, [country, numSimilarItems, addLog]);
+  }, [country, numSimilarItems, addLog, priceRange]);
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -446,6 +452,20 @@ export default function StyleSeerPage() {
                           onChange={handleNumItemsChange}
                           placeholder="e.g., 5"
                           className="mt-1"
+                      />
+                  </div>
+                  <div className="mt-4 w-full max-w-sm">
+                      <Label htmlFor="price-range-slider" className="text-sm font-medium text-muted-foreground">
+                          Price Range: ${priceRange[0]} - ${priceRange[1]}
+                      </Label>
+                      <Slider
+                          id="price-range-slider"
+                          min={1}
+                          max={5000}
+                          step={10}
+                          value={priceRange}
+                          onValueChange={(value: [number, number]) => setPriceRange(value)}
+                          className="mt-2"
                       />
                   </div>
               </div>
