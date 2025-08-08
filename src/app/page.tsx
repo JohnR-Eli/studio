@@ -59,14 +59,14 @@ const HISTORY_PREFERENCE_KEY = 'fittedToolSaveHistoryPreference';
 const topCountries = [
     "United States",
     "United Kingdom",
-    "Canada",
-    "Australia",
     "Germany",
-    "France",
-    "Japan",
-    "India",
-    "Brazil",
-    "China"
+    "Canada",
+    "South Africa",
+    "Netherlands",
+    "Mexico",
+    "Pakistan",
+    "Nigeria",
+    "Philippines"
 ];
 
 export default function StyleSeerPage() {
@@ -94,6 +94,59 @@ export default function StyleSeerPage() {
     }));
     setLogs(prev => [...prev, ...newLogs]);
   }, []);
+
+  const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string, photoDataUri: string) => {
+    setIsSpecificItemsLoading(true);
+    setCurrentLoadingMessage(`Searching for ${category} from ${brandName}...`);
+
+    const inputPayload = {
+      photoDataUri: photoDataUri.substring(0, 50) + '...',
+      clothingItem: category,
+      targetBrandName: brandName,
+      country,
+      numSimilarItems,
+      maxPrice,
+    };
+    addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
+
+    try {
+      const result = await findSimilarItems({
+        photoDataUri,
+        clothingItem: category,
+        targetBrandName: brandName,
+        country,
+        numSimilarItems,
+        maxPrice,
+      });
+
+      if (result.logs) {
+        addLog(result.logs);
+      }
+      
+      const newSimilarItems = result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }));
+
+
+      setAnalysis(prevAnalysis => ({
+        ...prevAnalysis!,
+        similarItems: newSimilarItems,
+      }));
+
+      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: newSimilarItems } });
+      setError(null);
+    } catch (e: any) {
+      addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
+      console.error(`Error fetching items for brand ${brandName}:`, e);
+      const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
+      setError(`Could not fetch items for ${brandName}: ${errorMessage}`);
+      setAnalysis(prevAnalysis => ({
+        ...prevAnalysis!,
+        similarItems: [],
+      }));
+    } finally {
+      setIsSpecificItemsLoading(false);
+      setCurrentLoadingMessage("Analysis complete.");
+    }
+  }, [country, numSimilarItems, addLog, maxPrice]);
 
   useEffect(() => {
     let initialPreference = false;
@@ -171,59 +224,6 @@ export default function StyleSeerPage() {
     }
   }, [searchHistory, saveHistoryPreference]);
   
-  const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: string, photoDataUri: string) => {
-    setIsSpecificItemsLoading(true);
-    setCurrentLoadingMessage(`Searching for ${category} from ${brandName}...`);
-
-    const inputPayload = {
-      photoDataUri: photoDataUri.substring(0, 50) + '...',
-      clothingItem: category,
-      targetBrandName: brandName,
-      country,
-      numSimilarItems,
-      maxPrice,
-    };
-    addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
-
-    try {
-      const result = await findSimilarItems({
-        photoDataUri,
-        clothingItem: category,
-        targetBrandName: brandName,
-        country,
-        numSimilarItems,
-        maxPrice,
-      });
-
-      if (result.logs) {
-        addLog(result.logs);
-      }
-      
-      const newSimilarItems = result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }));
-
-
-      setAnalysis(prevAnalysis => ({
-        ...prevAnalysis!,
-        similarItems: newSimilarItems,
-      }));
-
-      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: newSimilarItems } });
-      setError(null);
-    } catch (e: any) {
-      addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
-      console.error(`Error fetching items for brand ${brandName}:`, e);
-      const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
-      setError(`Could not fetch items for ${brandName}: ${errorMessage}`);
-      setAnalysis(prevAnalysis => ({
-        ...prevAnalysis!,
-        similarItems: [],
-      }));
-    } finally {
-      setIsSpecificItemsLoading(false);
-      setCurrentLoadingMessage("Analysis complete.");
-    }
-  }, [country, numSimilarItems, addLog, maxPrice]);
-
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
       setImageUri(null);
