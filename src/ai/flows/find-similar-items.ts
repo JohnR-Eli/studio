@@ -23,7 +23,6 @@ const FindSimilarItemsInputSchema = z.object({
   targetBrandName: z.string().describe('The specific brand name to primarily find similar items from. This brand is typically one of the alternative brands suggested by the image analysis step.'),
   country: z.string().optional().describe('The country of residence of the user, used to prioritize vendors from that country. If not provided, it will default to United States.'),
   numSimilarItems: z.number().optional().default(5).describe('The number of similar items to find. Defaults to 5.'),
-  minPrice: z.number().optional().describe('The minimum price for the items to find.'),
   maxPrice: z.number().optional().describe('The maximum price for the items to find.'),
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
@@ -64,7 +63,7 @@ const findSimilarItemsFlow = ai.defineFlow(
         brand: input.targetBrandName,
         gender: "Unisex",
         country: country,
-        // minPrice and maxPrice are not supported by the external API yet
+        // maxPrice is not supported by the external API yet
       };
       logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
       
@@ -83,7 +82,7 @@ const findSimilarItemsFlow = ai.defineFlow(
 
       // In a real scenario, the API would support price filters.
       // We are simulating this by acknowledging the prompt would be updated.
-      // If we had a text prompt, we would add: `The items should be between $${input.minPrice} and $${input.maxPrice}.`
+      // If we had a text prompt, we would add: `The items should be priced at or below $${input.maxPrice}.`
       
       return { similarItems, logs };
 

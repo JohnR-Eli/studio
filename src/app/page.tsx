@@ -83,7 +83,7 @@ export default function StyleSeerPage() {
   const [numSimilarItems, setNumSimilarItems] = useState(5);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
-  const [priceRange, setPriceRange] = useState<[number, number]>([1, 5000]);
+  const [maxPrice, setMaxPrice] = useState(5000);
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
     const logsToAdd = Array.isArray(log) ? log : [log];
@@ -181,8 +181,7 @@ export default function StyleSeerPage() {
       targetBrandName: brandName,
       country,
       numSimilarItems,
-      minPrice: priceRange[0],
-      maxPrice: priceRange[1],
+      maxPrice,
     };
     addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
 
@@ -193,8 +192,7 @@ export default function StyleSeerPage() {
         targetBrandName: brandName,
         country,
         numSimilarItems,
-        minPrice: priceRange[0],
-        maxPrice: priceRange[1],
+        maxPrice,
       });
 
       if (result.logs) {
@@ -224,7 +222,7 @@ export default function StyleSeerPage() {
       setIsSpecificItemsLoading(false);
       setCurrentLoadingMessage("Analysis complete.");
     }
-  }, [country, numSimilarItems, addLog, priceRange]);
+  }, [country, numSimilarItems, addLog, maxPrice]);
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -329,7 +327,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment]);
+  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice]);
 
 
   const handleReset = useCallback(() => {
@@ -456,15 +454,15 @@ export default function StyleSeerPage() {
                   </div>
                   <div className="mt-4 w-full max-w-sm">
                       <Label htmlFor="price-range-slider" className="text-sm font-medium text-muted-foreground">
-                          Price Range: ${priceRange[0]} - ${priceRange[1]}
+                          Max Price: ${maxPrice}
                       </Label>
                       <Slider
                           id="price-range-slider"
                           min={1}
                           max={5000}
                           step={10}
-                          value={priceRange}
-                          onValueChange={(value: [number, number]) => setPriceRange(value)}
+                          value={[maxPrice]}
+                          onValueChange={(value: number[]) => setMaxPrice(value[0])}
                           className="mt-2"
                       />
                   </div>
