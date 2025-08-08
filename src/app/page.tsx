@@ -190,7 +190,6 @@ export default function StyleSeerPage() {
         numSimilarItems,
       });
 
-      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: result.similarItems } });
       if (result.logs) {
         addLog(result.logs);
       }
@@ -203,6 +202,7 @@ export default function StyleSeerPage() {
         similarItems: newSimilarItems,
       }));
 
+      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: newSimilarItems } });
       setError(null);
     } catch (e: any) {
       addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
@@ -273,10 +273,10 @@ export default function StyleSeerPage() {
         };
         addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
         findComplementaryItems(compInput).then(compResult => {
-            addLog({ event: 'response', flow: 'findComplementaryItems', data: { complementaryItems: compResult.complementaryItems } });
             if (compResult.logs) {
               addLog(compResult.logs);
             }
+            addLog({ event: 'response', flow: 'findComplementaryItems', data: { complementaryItems: compResult.complementaryItems } });
             setAnalysis(prev => prev ? ({ ...prev, complementaryItems: compResult.complementaryItems }) : null);
         }).catch(e => {
             addLog({ event: 'error', flow: 'findComplementaryItems', data: e.message });
