@@ -23,7 +23,7 @@ const FindComplementaryItemsInputSchema = z.object({
 export type FindComplementaryItemsInput = z.infer<typeof FindComplementaryItemsInputSchema>;
 
 const ComplementaryItemSchema = z.object({
-  category: z.string().describe('The category of the complementary item (e.g., "Pants", "Shoes").'),
+  category: z.string().describe('The category of the complementary item (e.g., "Bottoms", "Shoes").'),
   itemTitle: z.string().describe('A concise title for the item.'),
   vendorLink: z.string().url().describe('A direct URL to the product page.'),
   imageURL: z.string().url().describe('A URL for the item\'s image.'),
@@ -45,26 +45,19 @@ const preferredBrandsForStyleApproximation = [
     "onehanesplace.com", "Jansport", "Kut from the Kloth", "Maidenform", "UGG US"
 ];
 
-const complementaryCategoriesMap: Record<string, string[]> = {
-    "Top": ["Pants", "Shoes"],
-    "Tops": ["Pants", "Shoes"],
-    "TShirts": ["Pants", "Shoes"],
-    "Sweatshirts": ["Pants", "Shoes"],
-    "Outerwear": ["Pants", "Tops"],
-    "Sweaters": ["Pants", "Shoes"],
-    "Bottom": ["Tops", "Shoes"],
-    "Bottoms": ["Tops", "Shoes"],
-    "Pants": ["Tops", "Shoes"],
-    "Jeans": ["Tops", "Shoes"],
-    "Footwear": ["Tops", "Pants"],
-    "Shoes": ["Tops", "Pants"],
-    "Accessory": ["Tops", "Pants"],
-    "Accessories": ["Tops", "Pants"],
-    "Hats": ["Tops", "Pants"],
-    "Headware": ["Tops", "Pants"],
-    "Activewear": ["Shoes", "Accessories"],
-    "Clothing": ["Shoes", "Accessories"],
-};
+const allClothingCategories = [
+    "Tops", "Bottoms", "Footwear", "Accessories", "Activewear", "Outerwear", 
+    "Sweaters", "T-Shirts", "Jeans", "Pants", "Shoes", "Hats"
+];
+
+const determineCategoriesPrompt = ai.definePrompt(
+    {
+      name: 'determineComplementaryCategories',
+      input: { schema: z.object({ originalClothingCategories: z.array(z.string()), gender: z.enum(["Male", "Female", "Unisex"]) }) },
+      output: { schema: z.object({ categoriesToFind: z.array(z.string()) }) },
+      prompt: `Based on the original clothing categories {{json originalClothingCategories}} and gender '{{gender}}', decide which 1-3 categories from the following list would best complete the look: ${allClothingCategories.join(', ')}. Do not select categories that are too similar to the originals.`,
+    },
+);
 
 export async function findComplementaryItems(input: FindComplementaryItemsInput): Promise<FindComplementaryItemsOutput> {
   return findComplementaryItemsFlow(input);
@@ -79,22 +72,14 @@ const findComplementaryItemsFlow = ai.defineFlow(
   async ({ originalClothingCategories, gender, country = 'United States', numItemsPerCategory = 2 }): Promise<FindComplementaryItemsOutput> => {
     const complementaryItems: ComplementaryItem[] = [];
     const logs: Omit<LogEntry, 'id' | 'timestamp'>[] = [];
-    
-    // Get all potential complementary categories from the map for each original category.
-    const potentialCategories = originalClothingCategories.flatMap(originalCategory => complementaryCategoriesMap[originalCategory] || []);
-    
-    // Filter out duplicates and categories that were in the original list.
-    const categoriesToFind = [...new Set(potentialCategories)]
-        .filter(category => !originalClothingCategories.includes(category));
-    
-    // If no categories are left after filtering, fall back to some defaults.
-    if (categoriesToFind.length === 0) {
-        categoriesToFind.push("Shoes", "Accessories");
-    }
+
+    const categoryResponse = await determineCategoriesPrompt({ originalClothingCategories, gender });
+    const categoriesToFind = categoryResponse.output?.categoriesToFind || [];
 
     const numToFetch = numItemsPerCategory || 2;
 
     for (const category of categoriesToFind) {
+      if (!category) continue;
       const randomBrand = preferredBrandsForStyleApproximation[Math.floor(Math.random() * preferredBrandsForStyleApproximation.length)];
       try {
         const apiInput = {howMany: numToFetch, category, brand: randomBrand, gender, country};

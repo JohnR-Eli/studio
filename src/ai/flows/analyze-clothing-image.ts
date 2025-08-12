@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -18,7 +17,7 @@ const AnalyzeClothingImageInputSchema = z.object({
     .describe(
       "A photo of clothing, as a data URI. It must include a MIME type (e.g., 'image/jpeg', 'image/png') and use Base64 encoding for the image data. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
-  genderDepartment: z.enum(["Male", "Female", "Unisex"]).optional().describe("The user-specified gender department for the clothing items. If provided, this should guide the analysis."),
+  genderDepartment: z.enum(["Male", "Female", "Unisex", "Auto"]).optional().describe("The user-specified gender department for the clothing items. If 'Auto', the AI will determine the gender."),
 });
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
 
@@ -57,42 +56,6 @@ export async function analyzeClothingImage(input: AnalyzeClothingImageInput): Pr
   }
 }
 
-const prompt = ai.definePrompt({
-  name: 'analyzeClothingImagePrompt',
-  input: {schema: AnalyzeClothingImageInputSchema},
-  output: {schema: AnalyzeClothingImageOutputSchema},
-  prompt: `You are an AI fashion assistant with an expert eye for detail. Analyze the clothing in the image and provide the following information:
-
-- 'clothingItems': A list of the clothing items or categories present in the image. This must be strictly one of the following: ${clothingCategories.join(', ')}.
-- 'genderDepartment': Determine the primary gender department for the clothing. Critically evaluate the item's cut, style, and form.
-    - If the user has specified a gender department ({{genderDepartment}}), you MUST use that value for the 'genderDepartment' output field.
-    - If no gender is specified by the user, you must determine it. If the item's design strongly suggests a specific gender (e.g., a dress, a tailored suit), you must classify it as "Male" or "Female".
-    - Reserve the "Unisex" classification for items that are genuinely and commonly marketed to both genders without significant stylistic changes (e.g., basic crewneck T-shirts, many sneakers, beanies).
-    - If an item has a style that leans towards one gender, even if it could be worn by anyone, choose the gender it is primarily marketed towards. For example, a floral blouse should be "Female" even if a male could wear it. A boxy, oversized hoodie might be "Unisex". Do not default to "Unisex" out of caution; make a specific choice based on the evidence in the image.
-
-Brand Identification:
-- Carefully examine the image for any explicit brand indicators like logos, tags, or highly distinctive, brand-specific design elements.
-- If a brand is clearly and explicitly identifiable from such indicators:
-    - Set 'identifiedBrand' to the name of this brand.
-    - Set 'brandIsExplicit' to true.
-    - Set 'approximatedBrands' to an empty list.
-- If no brand is explicitly identifiable from clear indicators:
-    - Set 'identifiedBrand' to null or ensure it is not populated.
-    - Set 'brandIsExplicit' to false.
-    - From the 'Preferred Brand List' below, identify up to 5 brands that are the closest stylistic approximations to the item(s) shown. Populate 'approximatedBrands' with these brand names. If fewer than 5 strong approximations are found, list as many as are appropriate. An empty list is acceptable if no reasonable approximations can be made from the list.
-
-Alternative Stylistic Brands:
-- Regardless of whether a brand was explicitly identified or if approximations were made, you MUST provide a list for 'alternativeBrands'.
-- Populate 'alternativeBrands' with up to 5 brands from the *same 'Preferred Brand List'* below. These brands should be known for a style that is similar to the item(s) in the image.
-- If 'identifiedBrand' was populated (meaning brandIsExplicit is true), the brands in 'alternativeBrands' should ideally be different from 'identifiedBrand' to offer true alternatives. If this is not possible while maintaining stylistic relevance from the preferred list, some overlap is acceptable but prioritize diversity first.
-- Ensure 'alternativeBrands' always contains up to 5 relevant suggestions from the preferred list if stylistically appropriate matches can be found. If fewer than 5 are truly relevant, provide as many as are. If no relevant alternative brands can be found from the list, it's acceptable for 'alternativeBrands' to be an empty list.
-
-Preferred Brand List (use this for 'approximatedBrands' and 'alternativeBrands'):
-${preferredBrandsForStyleApproximation.join(', ')}
-
-Image: {{media url=photoDataUri}}`,
-});
-
 const analyzeClothingImageFlow = ai.defineFlow(
   {
     name: 'analyzeClothingImageFlow',
@@ -101,25 +64,71 @@ const analyzeClothingImageFlow = ai.defineFlow(
   },
   async (input): Promise<AnalyzeClothingImageOutput> => {
     try {
-      const result = await prompt(input);
-      if (result.output) {
-        // Ensure approximatedBrands is empty if brandIsExplicit is true and identifiedBrand is set
-        if (result.output.brandIsExplicit && result.output.identifiedBrand) {
-          result.output.approximatedBrands = [];
-        }
-        // Ensure identifiedBrand is null/undefined if brandIsExplicit is false
-        if (!result.output.brandIsExplicit) {
-            result.output.identifiedBrand = undefined;
-        }
-        return result.output;
+      const userProvidedGender = (input.genderDepartment && input.genderDepartment !== 'Auto') 
+        ? input.genderDepartment 
+        : null;
+
+      const promptInput = { ...input };
+      let analysisPrompt: any;
+
+      if (userProvidedGender) {
+        // If the user provided a gender, we use a prompt that doesn't ask the AI for it.
+        const { genderDepartment, ...outputFieldsWithoutGender } = AnalyzeClothingImageOutputSchema.shape;
+        analysisPrompt = ai.definePrompt({
+          name: 'analyzeClothingImagePrompt_NoGender',
+          input: { schema: AnalyzeClothingImageInputSchema },
+          output: { schema: z.object(outputFieldsWithoutGender) },
+          prompt: `You are an AI fashion assistant. Analyze the clothing in the image. You have been given the gender department by the user, so you do not need to determine it.
+          - 'clothingItems': List the clothing items from this list: ${clothingCategories.join(', ')}.
+          - Brand Identification: Identify the brand if a logo is visible.
+          - Brand Approximations: If no brand is clear, suggest up to 5 stylistic matches from the Preferred Brand List.
+          - Alternative Brands: Suggest up to 5 similar style brands from the Preferred Brand List.
+          Preferred Brand List: ${preferredBrandsForStyleApproximation.join(', ')}
+          Image: {{media url=photoDataUri}}`,
+        });
+      } else {
+        // If gender is 'Auto', use the original prompt to let the AI decide.
+        analysisPrompt = ai.definePrompt({
+          name: 'analyzeClothingImagePrompt_WithGender',
+          input: { schema: AnalyzeClothingImageInputSchema },
+          output: { schema: AnalyzeClothingImageOutputSchema },
+          prompt: `You are an AI fashion assistant. Analyze the clothing in the image.
+          - 'clothingItems': List the clothing items from this list: ${clothingCategories.join(', ')}.
+          - 'genderDepartment': Determine if the item is Male, Female, or Unisex. Prefer 'Male' or 'Female' over 'Unisex'.
+          - Brand Identification: Identify the brand if a logo is visible.
+          - Brand Approximations: If no brand is clear, suggest up to 5 stylistic matches from the Preferred Brand List.
+          - Alternative Brands: Suggest up to 5 similar style brands from the Preferred Brand List.
+          Preferred Brand List: ${preferredBrandsForStyleApproximation.join(', ')}
+          Image: {{media url=photoDataUri}}`,
+        });
       }
-      const errorMessage = "analyzeClothingImageFlow: Prompt did not return a valid output.";
-      console.error(errorMessage, result);
-      throw new Error(errorMessage);
+
+      const result = await analysisPrompt(promptInput);
+
+      if (!result.output) {
+        throw new Error("The AI model did not return a valid analysis.");
+      }
+
+      // Combine the results and enforce the user's gender choice.
+      const finalOutput: AnalyzeClothingImageOutput = {
+        ...result.output,
+        genderDepartment: userProvidedGender || result.output.genderDepartment,
+      };
+
+      // Final data cleanup.
+      if (finalOutput.brandIsExplicit && finalOutput.identifiedBrand) {
+        finalOutput.approximatedBrands = [];
+      }
+      if (!finalOutput.brandIsExplicit) {
+        finalOutput.identifiedBrand = undefined;
+      }
+
+      return finalOutput;
+
     } catch (e: any) {
       const errorMessage = `Error in analyzeClothingImageFlow: ${e.message || String(e)}`;
       console.error(errorMessage, e);
-      throw new Error(errorMessage); 
+      throw new Error(errorMessage);
     }
   }
 );

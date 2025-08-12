@@ -13,6 +13,11 @@ import {z} from 'genkit';
 import { callExternalApi } from './call-external-api';
 import { LogEntry } from '@/app/page';
 
+const clothingCategories = [
+    "Tops", "Bottoms", "Footwear", "Accessories", "Activewear", "Outerwear", 
+    "Sweaters", "T-Shirts", "Jeans", "Pants", "Shoes", "Hats"
+];
+
 const FindSimilarItemsInputSchema = z.object({
   photoDataUri: z
     .string()
@@ -24,6 +29,7 @@ const FindSimilarItemsInputSchema = z.object({
   country: z.string().optional().describe('The country of residence of the user, used to prioritize vendors from that country. If not provided, it will default to United States.'),
   numSimilarItems: z.number().optional().default(5).describe('The number of similar items to find. Defaults to 5.'),
   maxPrice: z.number().optional().describe('The maximum price for the items to find.'),
+  gender: z.enum(["Male", "Female", "Unisex"]).optional().describe('The gender department for the clothing items.'),
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
@@ -53,43 +59,48 @@ const findSimilarItemsFlow = ai.defineFlow(
   },
   async (input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> => {
     const logs: Omit<LogEntry, 'id' | 'timestamp'>[] = [];
-    try {
-	    const country = input.country || 'United States';
-      const numSimilarItems = input.numSimilarItems || 5;
-      
-      const apiInput = {
-        howMany: numSimilarItems,
-        category: input.clothingItem,
-        brand: input.targetBrandName,
-        gender: "Unisex",
-        country: country,
-        // maxPrice is not supported by the external API yet
-      };
-      logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
-      
-      // The external API call does not currently support price range, so we will filter the results later
-      // or adjust the prompt if we were using a text-based generation model.
-      // For now, we call it as before and acknowledge the price range in the prompt if we were using one.
-      const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
-      logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
+    let currentCategory = input.clothingItem;
+    let attempts = 0;
+    const maxAttempts = 3;
 
-      let similarItems = apiResponse.imageURLs.map((imageUrl, index) => ({
-        itemTitle: `${input.targetBrandName} ${input.clothingItem}`,
-        itemDescription: `A ${input.clothingItem} from ${input.targetBrandName} that matches the style. Found in ${country}.`,
-        vendorLink: apiResponse.URLs[index],
-        imageURL: imageUrl,
-      }));
+    while (attempts < maxAttempts) {
+        try {
+            const country = input.country || 'United States';
+            const numSimilarItems = input.numSimilarItems || 5;
+            const gender = input.gender || 'Unisex';
+            
+            const apiInput = {
+                howMany: numSimilarItems,
+                category: currentCategory,
+                brand: input.targetBrandName,
+                gender,
+                country: country,
+            };
+            logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
+            
+            const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
+            logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
 
-      // In a real scenario, the API would support price filters.
-      // We are simulating this by acknowledging the prompt would be updated.
-      // If we had a text prompt, we would add: `The items should be priced at or below $${input.maxPrice}.`
-      
-      return { similarItems, logs };
-
-    } catch (e) {
-      console.error(`Error in findSimilarItemsFlow for brand ${input.targetBrandName}:`, e);
-      logs.push({ event: 'error', flow: 'callExternalApi', data: e instanceof Error ? e.message : String(e) });
-      return { similarItems: [], logs };
+            if (apiResponse.imageURLs && apiResponse.imageURLs.length > 0) {
+                let similarItems = apiResponse.imageURLs.map((imageUrl, index) => ({
+                    itemTitle: `${input.targetBrandName} ${currentCategory}`,
+                    itemDescription: `A ${currentCategory} from ${input.targetBrandName} that matches the style. Found in ${country}.`,
+                    vendorLink: apiResponse.URLs[index],
+                    imageURL: imageUrl,
+                }));
+                return { similarItems, logs };
+            } else {
+                logs.push({ event: 'error', flow: 'callExternalApi', data: `Empty response for category: ${currentCategory}`});
+                const otherCategories = clothingCategories.filter(c => c !== currentCategory && c !== input.clothingItem);
+                currentCategory = otherCategories[Math.floor(Math.random() * otherCategories.length)];
+            }
+        } catch (e) {
+            console.error(`Error in findSimilarItemsFlow for brand ${input.targetBrandName}:`, e);
+            logs.push({ event: 'error', flow: 'callExternalApi', data: e instanceof Error ? e.message : String(e) });
+            break; 
+        }
+        attempts++;
     }
+    return { similarItems: [], logs };
   }
 );
