@@ -104,6 +104,7 @@ export default function StyleSeerPage() {
   const [numSimilarItems, setNumSimilarItems] = useState(5);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [minPrice, setMinPrice] = useState(1);
   const [maxPrice, setMaxPrice] = useState(5000);
   const [activeTab, setActiveTab] = useState("recommendations");
   const [includeLingerie, setIncludeLingerie] = useState(false);
@@ -131,6 +132,7 @@ export default function StyleSeerPage() {
       targetBrandName: brandName,
       country,
       numSimilarItems,
+      minPrice,
       maxPrice,
       gender,
       userProvidedCategory: selectedCategory !== 'Auto' ? selectedCategory : undefined,
@@ -144,6 +146,7 @@ export default function StyleSeerPage() {
         targetBrandName: brandName,
         country,
         numSimilarItems,
+        minPrice,
         maxPrice,
         gender,
         userProvidedCategory: selectedCategory !== 'Auto' ? selectedCategory : undefined,
@@ -202,7 +205,7 @@ export default function StyleSeerPage() {
       setIsLoadingSimilarItems(false);
       setCurrentLoadingMessage("Analysis complete.");
     }
-  }, [country, numSimilarItems, addLog, maxPrice, includeLingerie, genderDepartment, selectedCategory]);
+  }, [country, numSimilarItems, addLog, minPrice, maxPrice, includeLingerie, genderDepartment, selectedCategory]);
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -302,7 +305,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
+  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
 
   useEffect(() => {
     try {
@@ -377,6 +380,13 @@ export default function StyleSeerPage() {
     const value = parseInt(e.target.value, 10);
     if (!isNaN(value) && value > 0) {
       setNumSimilarItems(value);
+    }
+  };
+
+  const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value)) {
+      setMinPrice(Math.max(1, value));
     }
   };
   
@@ -484,8 +494,14 @@ export default function StyleSeerPage() {
                                 <Input id="num-items-input" type="number" value={numSimilarItems} onChange={handleNumItemsChange} placeholder="e.g., 5" className="mt-1"/>
                             </div>
                             <div className="mt-4 w-full max-w-sm">
-                                <Label htmlFor="price-range-slider" className="text-sm font-medium text-muted-foreground">Max Price: ${maxPrice}</Label>
-                                <Slider id="price-range-slider" min={1} max={5000} step={10} value={[maxPrice]} onValueChange={(value: number[]) => setMaxPrice(value[0])} className="mt-2"/>
+                                <Label className="text-sm font-medium text-muted-foreground">Price Range</Label>
+                                <div className="flex items-center gap-4 mt-1">
+                                    <Input id="min-price-input" type="number" value={minPrice} onChange={handleMinPriceChange} placeholder="Min $" className="w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"/>
+                                    <div className="flex-1">
+                                      <div className="flex justify-between text-xs text-muted-foreground"><span>${minPrice}</span><span>${maxPrice}</span></div>
+                                      <Slider id="price-range-slider" min={1} max={5000} step={10} value={[maxPrice]} onValueChange={(value: number[]) => setMaxPrice(value[0])} className="mt-1"/>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         )}
