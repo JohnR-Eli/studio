@@ -82,6 +82,11 @@ const preferredBrands = [
   
 const lingerieBrands = ["Savage X Fenty", "Bali Bras", "Maidenform", "The Tight Spot", "onehanesplace.com"];
 
+const clothingCategories = [
+    "Tops", "Bottoms", "Footwear", "Accessories", "Activewear", "Outerwear", 
+    "Sweaters", "T-Shirts", "Jeans", "Pants", "Shoes", "Hats"
+];
+
 
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -103,6 +108,7 @@ export default function StyleSeerPage() {
   const [activeTab, setActiveTab] = useState("recommendations");
   const [includeLingerie, setIncludeLingerie] = useState(false);
   const [availableBrands, setAvailableBrands] = useState(preferredBrands);
+  const [selectedCategory, setSelectedCategory] = useState('Auto');
 
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
@@ -127,6 +133,7 @@ export default function StyleSeerPage() {
       numSimilarItems,
       maxPrice,
       gender,
+      userProvidedCategory: selectedCategory !== 'Auto' ? selectedCategory : undefined,
     };
     addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
 
@@ -139,6 +146,7 @@ export default function StyleSeerPage() {
         numSimilarItems,
         maxPrice,
         gender,
+        userProvidedCategory: selectedCategory !== 'Auto' ? selectedCategory : undefined,
       });
 
       if (result.logs) {
@@ -194,7 +202,7 @@ export default function StyleSeerPage() {
       setIsLoadingSimilarItems(false);
       setCurrentLoadingMessage("Analysis complete.");
     }
-  }, [country, numSimilarItems, addLog, maxPrice, includeLingerie, genderDepartment]);
+  }, [country, numSimilarItems, addLog, maxPrice, includeLingerie, genderDepartment, selectedCategory]);
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -250,8 +258,12 @@ export default function StyleSeerPage() {
               : (clothingAnalysisResult.approximatedBrands && clothingAnalysisResult.approximatedBrands[0]);
 
 
-        if (brandToFetch && clothingAnalysisResult.clothingItems.length > 0) {
-            handleBrandSelect(brandToFetch, clothingAnalysisResult.clothingItems[0], determinedGender, dataUri, clothingAnalysisResult.clothingItems);
+        const categoryToUse = selectedCategory !== 'Auto'
+            ? selectedCategory
+            : (clothingAnalysisResult.clothingItems.length > 0 ? clothingAnalysisResult.clothingItems[0] : 'Tops');
+
+        if (brandToFetch) {
+            handleBrandSelect(brandToFetch, categoryToUse, determinedGender, dataUri, clothingAnalysisResult.clothingItems);
         }
 
         const { similarItems, complementaryItems, ...historyAnalysisData } = currentAnalysis;
@@ -290,7 +302,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice, includeLingerie, selectedBrand]);
+  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
 
   useEffect(() => {
     try {
@@ -448,6 +460,16 @@ export default function StyleSeerPage() {
                                     <SelectContent>
                                         <SelectItem value="Auto">Auto (Recommended)</SelectItem>
                                         {availableBrands.map((brand) => (<SelectItem key={brand} value={brand}>{brand}</SelectItem>))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="mt-4 w-full max-w-sm">
+                                <Label htmlFor="category-select" className="text-sm font-medium text-muted-foreground">Clothing Category</Label>
+                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                    <SelectTrigger id="category-select" className="mt-1"><SelectValue placeholder="Select a category" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Auto">Auto (Detect from image)</SelectItem>
+                                        {clothingCategories.map((category) => (<SelectItem key={category} value={category}>{category}</SelectItem>))}
                                     </SelectContent>
                                 </Select>
                             </div>

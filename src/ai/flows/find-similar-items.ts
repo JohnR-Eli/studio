@@ -30,6 +30,7 @@ const FindSimilarItemsInputSchema = z.object({
   numSimilarItems: z.number().optional().default(5).describe('The number of similar items to find. Defaults to 5.'),
   maxPrice: z.number().optional().describe('The maximum price for the items to find.'),
   gender: z.enum(["Male", "Female", "Unisex"]).optional().describe('The gender department for the clothing items.'),
+  userProvidedCategory: z.string().optional().describe('A clothing category explicitly provided by the user, which should override AI detection.'),
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
@@ -59,7 +60,7 @@ const findSimilarItemsFlow = ai.defineFlow(
   },
   async (input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> => {
     const logs: Omit<LogEntry, 'id' | 'timestamp'>[] = [];
-    let currentCategory = input.clothingItem;
+    let currentCategory = input.userProvidedCategory || input.clothingItem;
     let attempts = 0;
     const maxAttempts = 3;
 
@@ -91,6 +92,10 @@ const findSimilarItemsFlow = ai.defineFlow(
                 return { similarItems, logs };
             } else {
                 logs.push({ event: 'error', flow: 'callExternalApi', data: `Empty response for category: ${currentCategory}`});
+                if (input.userProvidedCategory) {
+                    // If the user provided the category and it failed, don't try others.
+                    break;
+                }
                 const otherCategories = clothingCategories.filter(c => c !== currentCategory && c !== input.clothingItem);
                 currentCategory = otherCategories[Math.floor(Math.random() * otherCategories.length)];
             }
