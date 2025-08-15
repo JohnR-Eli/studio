@@ -458,7 +458,7 @@ export default function StyleSeerPage() {
                                 </div>
                             )}
                             <div className="mt-4 w-full max-w-sm">
-                                <Label htmlFor="num-items-input" className="text-sm font-medium text-muted-foreground">Number of Similar Items</Label>
+                                <Label htmlFor="num-items-input" className="text-sm font-medium text-muted-foreground">Number of Items to Shop</Label>
                                 <Input id="num-items-input" type="number" value={numSimilarItems} onChange={handleNumItemsChange} placeholder="e.g., 5" className="mt-1"/>
                             </div>
                             <div className="mt-4 w-full max-w-sm">

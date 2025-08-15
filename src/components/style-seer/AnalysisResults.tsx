@@ -148,7 +148,7 @@ export default function AnalysisResults({
         <div className="lg:col-span-full grid grid-cols-1 gap-6">
             {shouldShowSimilarItems && (
                 <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><ShoppingBag size={24} className="text-primary" /> Style Suggestions</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><ShoppingBag size={24} className="text-primary" /> Shop the Look</CardTitle></CardHeader>
                     <CardContent>
                         {isLoadingSimilarItems ? (
                             <div className="flex items-center justify-center py-6"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-3 text-muted-foreground">Loading suggestions...</p></div>
