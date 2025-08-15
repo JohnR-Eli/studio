@@ -19,6 +19,7 @@ const FindComplementaryItemsInputSchema = z.object({
   gender: z.enum(["Male", "Female", "Unisex"]).describe("The gender department for the recommendations."),
   country: z.string().optional().describe('The country for sourcing items.'),
   numItemsPerCategory: z.number().optional().default(2).describe('Number of items to find for each complementary category.'),
+  includeLingerie: z.boolean().optional().describe("Whether to include lingerie brands. Only considered when gender is 'Female'."),
 });
 export type FindComplementaryItemsInput = z.infer<typeof FindComplementaryItemsInputSchema>;
 
@@ -40,10 +41,12 @@ const preferredBrandsForStyleApproximation = [
     "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
     "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
     "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
-    "LUISAVIAROMA", "FootJoy", "The Luxury Closet", "Savage X Fenty", "Bali Bras", 
+    "LUISAVIAROMA", "FootJoy", "The Luxury Closet", 
     "Belstaff", "Belstaff UK", "Culture Kings US", "D1 Milano", "Double F", 
-    "onehanesplace.com", "Jansport", "Kut from the Kloth", "Maidenform", "UGG US"
+    "Jansport", "Kut from the Kloth", "UGG US"
 ];
+
+const lingerieBrands = ["Savage X Fenty", "Bali Bras", "Maidenform", "The Tight Spot", "onehanesplace.com"];
 
 const allClothingCategories = [
     "Tops", "Bottoms", "Footwear", "Accessories", "Activewear", "Outerwear", 
@@ -69,18 +72,27 @@ const findComplementaryItemsFlow = ai.defineFlow(
     inputSchema: FindComplementaryItemsInputSchema,
     outputSchema: FindComplementaryItemsOutputSchema,
   },
-  async ({ originalClothingCategories, gender, country = 'United States', numItemsPerCategory = 2 }): Promise<FindComplementaryItemsOutput> => {
+  async ({ originalClothingCategories, gender, country = 'United States', numItemsPerCategory = 2, includeLingerie = false }): Promise<FindComplementaryItemsOutput> => {
     const complementaryItems: ComplementaryItem[] = [];
     const logs: Omit<LogEntry, 'id' | 'timestamp'>[] = [];
 
     const categoryResponse = await determineCategoriesPrompt({ originalClothingCategories, gender });
-    const categoriesToFind = categoryResponse.output?.categoriesToFind || [];
+    let categoriesToFind = categoryResponse.output?.categoriesToFind || [];
+
+    // Exclude original categories from the ones to find
+    if (originalClothingCategories && originalClothingCategories.length > 0) {
+      categoriesToFind = categoriesToFind.filter(cat => !originalClothingCategories.includes(cat));
+    }
 
     const numToFetch = numItemsPerCategory || 2;
+    
+    const brandList = (gender === 'Female' && includeLingerie)
+      ? [...preferredBrandsForStyleApproximation, ...lingerieBrands]
+      : preferredBrandsForStyleApproximation;
 
     for (const category of categoriesToFind) {
       if (!category) continue;
-      const randomBrand = preferredBrandsForStyleApproximation[Math.floor(Math.random() * preferredBrandsForStyleApproximation.length)];
+      const randomBrand = brandList[Math.floor(Math.random() * brandList.length)];
       try {
         const apiInput = {howMany: numToFetch, category, brand: randomBrand, gender, country};
         logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });

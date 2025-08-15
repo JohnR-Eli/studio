@@ -18,6 +18,7 @@ const AnalyzeClothingImageInputSchema = z.object({
       "A photo of clothing, as a data URI. It must include a MIME type (e.g., 'image/jpeg', 'image/png') and use Base64 encoding for the image data. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
   genderDepartment: z.enum(["Male", "Female", "Unisex", "Auto"]).optional().describe("The user-specified gender department for the clothing items. If 'Auto', the AI will determine the gender."),
+  includeLingerie: z.boolean().optional().describe("Whether to include lingerie brands in the recommendations. This is only considered when genderDepartment is 'Female'."),
 });
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
 
@@ -25,10 +26,12 @@ const preferredBrandsForStyleApproximation = [
   "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
   "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
   "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
-  "LUISAVIAROMA", "FootJoy", "The Luxury Closet", "Savage X Fenty", "Bali Bras", 
+  "LUISAVIAROMA", "FootJoy", "The Luxury Closet", 
   "Belstaff", "Belstaff UK", "Culture Kings US", "D1 Milano", "Double F", 
-  "onehanesplace.com", "Jansport", "Kut from the Kloth", "Maidenform", "UGG US"
+  "Jansport", "Kut from the Kloth", "UGG US"
 ];
+
+const lingerieBrands = ["Savage X Fenty", "Bali Bras", "Maidenform", "The Tight Spot", "onehanesplace.com"];
 
 const clothingCategories = [
     "Top", "Tops", "Clothing", "Bottom", "Bottoms", "Pants", "Footwear", "Shoes",
@@ -68,6 +71,10 @@ const analyzeClothingImageFlow = ai.defineFlow(
         ? input.genderDepartment 
         : null;
 
+      const brandList = (input.genderDepartment === 'Female' && input.includeLingerie) 
+        ? [...preferredBrandsForStyleApproximation, ...lingerieBrands]
+        : preferredBrandsForStyleApproximation;
+
       const promptInput = { ...input };
       let analysisPrompt: any;
 
@@ -83,7 +90,7 @@ const analyzeClothingImageFlow = ai.defineFlow(
           - Brand Identification: Identify the brand if a logo is visible.
           - Brand Approximations: If no brand is clear, suggest up to 5 stylistic matches from the Preferred Brand List.
           - Alternative Brands: Suggest up to 5 similar style brands from the Preferred Brand List.
-          Preferred Brand List: ${preferredBrandsForStyleApproximation.join(', ')}
+          Preferred Brand List: ${brandList.join(', ')}
           Image: {{media url=photoDataUri}}`,
         });
       } else {
@@ -98,7 +105,7 @@ const analyzeClothingImageFlow = ai.defineFlow(
           - Brand Identification: Identify the brand if a logo is visible.
           - Brand Approximations: If no brand is clear, suggest up to 5 stylistic matches from the Preferred Brand List.
           - Alternative Brands: Suggest up to 5 similar style brands from the Preferred Brand List.
-          Preferred Brand List: ${preferredBrandsForStyleApproximation.join(', ')}
+          Preferred Brand List: ${brandList.join(', ')}
           Image: {{media url=photoDataUri}}`,
         });
       }

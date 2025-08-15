@@ -88,6 +88,8 @@ export default function StyleSeerPage() {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [maxPrice, setMaxPrice] = useState(5000);
   const [activeTab, setActiveTab] = useState("recommendations");
+  const [includeLingerie, setIncludeLingerie] = useState(false);
+
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
     const logsToAdd = Array.isArray(log) ? log : [log];
@@ -142,11 +144,13 @@ export default function StyleSeerPage() {
 
       if (newSimilarItems.length > 0) {
         setIsLoadingComplementaryItems(true);
+        setCurrentLoadingMessage("Searching for complementary items...");
         const compInput = {
             originalClothingCategories: clothingItems,
             gender: gender,
             country: country,
             numItemsPerCategory: numSimilarItems,
+            includeLingerie: includeLingerie && gender === 'Female',
         };
         addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
         findComplementaryItems(compInput).then(compResult => {
@@ -175,7 +179,7 @@ export default function StyleSeerPage() {
       setIsLoadingSimilarItems(false);
       setCurrentLoadingMessage("Analysis complete.");
     }
-  }, [country, numSimilarItems, addLog, maxPrice]);
+  }, [country, numSimilarItems, addLog, maxPrice, includeLingerie]);
 
   useEffect(() => {
     try {
@@ -196,6 +200,12 @@ export default function StyleSeerPage() {
       console.error("Failed to load history from localStorage:", e);
     }
   }, []);
+  
+  useEffect(() => {
+    if (genderDepartment !== 'Female') {
+      setIncludeLingerie(false);
+    }
+  }, [genderDepartment]);
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -221,11 +231,16 @@ export default function StyleSeerPage() {
     const inputPayload = { 
       photoDataUri: dataUri.substring(0, 50) + '...',
       genderDepartment,
+      includeLingerie: includeLingerie && genderDepartment === 'Female',
     };
     addLog({ event: 'invoke', flow: 'analyzeClothingImage', data: inputPayload });
 
     try {
-      const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri, genderDepartment });
+      const clothingAnalysisResult = await analyzeClothingImage({ 
+        photoDataUri: dataUri, 
+        genderDepartment,
+        includeLingerie: includeLingerie && genderDepartment === 'Female',
+      });
       addLog({ event: 'response', flow: 'analyzeClothingImage', data: clothingAnalysisResult || "No result" });
 
       if (clothingAnalysisResult) {
@@ -284,7 +299,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice]);
+  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice, includeLingerie]);
 
 
   const handleReset = useCallback(() => {
@@ -401,6 +416,12 @@ export default function StyleSeerPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
+                            {genderDepartment === 'Female' && (
+                                <div className="mt-4 w-full max-w-sm flex items-center space-x-2">
+                                    <Checkbox id="lingerie-checkbox" checked={includeLingerie} onCheckedChange={(checked) => setIncludeLingerie(!!checked)} />
+                                    <Label htmlFor="lingerie-checkbox" className="text-sm font-medium text-muted-foreground cursor-pointer">Include lingerie?</Label>
+                                </div>
+                            )}
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="num-items-input" className="text-sm font-medium text-muted-foreground">Number of Similar Items</Label>
                                 <Input id="num-items-input" type="number" value={numSimilarItems} onChange={handleNumItemsChange} placeholder="e.g., 5" className="mt-1"/>
