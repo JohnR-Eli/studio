@@ -71,6 +71,18 @@ const topCountries = [
     "Philippines"
 ];
 
+const preferredBrands = [
+    "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
+    "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
+    "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
+    "LUISAVIAROMA", "FootJoy", "The Luxury Closet", 
+    "Belstaff", "Belstaff UK", "Culture Kings US", "D1 Milano", "Double F", 
+    "Jansport", "Kut from the Kloth", "UGG US"
+];
+  
+const lingerieBrands = ["Savage X Fenty", "Bali Bras", "Maidenform", "The Tight Spot", "onehanesplace.com"];
+
+
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
@@ -83,12 +95,14 @@ export default function StyleSeerPage() {
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
   const [country, setCountry] = useState('United States');
   const [genderDepartment, setGenderDepartment] = useState<'Male' | 'Female' | 'Unisex' | 'Auto'>('Auto');
+  const [selectedBrand, setSelectedBrand] = useState('Auto');
   const [numSimilarItems, setNumSimilarItems] = useState(5);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [maxPrice, setMaxPrice] = useState(5000);
   const [activeTab, setActiveTab] = useState("recommendations");
   const [includeLingerie, setIncludeLingerie] = useState(false);
+  const [availableBrands, setAvailableBrands] = useState(preferredBrands);
 
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
@@ -229,9 +243,11 @@ export default function StyleSeerPage() {
         };
         setAnalysis(currentAnalysis);
         
-        const brandToFetch = (clothingAnalysisResult.identifiedBrand && clothingAnalysisResult.identifiedBrand !== "null") 
-            ? clothingAnalysisResult.identifiedBrand 
-            : (clothingAnalysisResult.approximatedBrands && clothingAnalysisResult.approximatedBrands[0]);
+        const brandToFetch = selectedBrand !== 'Auto'
+            ? selectedBrand
+            : (clothingAnalysisResult.identifiedBrand && clothingAnalysisResult.identifiedBrand !== "null") 
+              ? clothingAnalysisResult.identifiedBrand 
+              : (clothingAnalysisResult.approximatedBrands && clothingAnalysisResult.approximatedBrands[0]);
 
 
         if (brandToFetch && clothingAnalysisResult.clothingItems.length > 0) {
@@ -274,7 +290,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice, includeLingerie]);
+  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice, includeLingerie, selectedBrand]);
 
   useEffect(() => {
     try {
@@ -296,6 +312,14 @@ export default function StyleSeerPage() {
     }
   }, []);
   
+  useEffect(() => {
+    if (genderDepartment === 'Female' && includeLingerie) {
+      setAvailableBrands([...preferredBrands, ...lingerieBrands].sort());
+    } else {
+      setAvailableBrands(preferredBrands.sort());
+    }
+  }, [genderDepartment, includeLingerie]);
+
   useEffect(() => {
     if (genderDepartment !== 'Female') {
       setIncludeLingerie(false);
@@ -414,6 +438,16 @@ export default function StyleSeerPage() {
                                         <SelectItem value="Male">Male</SelectItem>
                                         <SelectItem value="Female">Female</SelectItem>
                                         <SelectItem value="Unisex">Unisex</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="mt-4 w-full max-w-sm">
+                                <Label htmlFor="brand-select" className="text-sm font-medium text-muted-foreground">Preferred Brand</Label>
+                                <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                                    <SelectTrigger id="brand-select" className="mt-1"><SelectValue placeholder="Select a brand" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Auto">Auto (Recommended)</SelectItem>
+                                        {availableBrands.map((brand) => (<SelectItem key={brand} value={brand}>{brand}</SelectItem>))}
                                     </SelectContent>
                                 </Select>
                             </div>
