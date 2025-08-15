@@ -150,7 +150,8 @@ export default function StyleSeerPage() {
             gender: gender,
             country: country,
             numItemsPerCategory: numSimilarItems,
-            includeLingerie: includeLingerie && gender === 'Female',
+            // Only include lingerie if the USER selected Female, not if the AI detected it.
+            includeLingerie: includeLingerie && genderDepartment === 'Female',
         };
         addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
         findComplementaryItems(compInput).then(compResult => {
@@ -179,33 +180,7 @@ export default function StyleSeerPage() {
       setIsLoadingSimilarItems(false);
       setCurrentLoadingMessage("Analysis complete.");
     }
-  }, [country, numSimilarItems, addLog, maxPrice, includeLingerie]);
-
-  useEffect(() => {
-    try {
-      const storedPreference = localStorage.getItem(HISTORY_PREFERENCE_KEY);
-      const save = storedPreference === 'true';
-      setSaveHistoryPreference(save);
-
-      if (save) {
-        const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (storedHistory) {
-          const parsedHistory = JSON.parse(storedHistory);
-          if (Array.isArray(parsedHistory)) {
-            setSearchHistory(parsedHistory.map((item: any) => ({ ...item, imageUri: undefined })));
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load history from localStorage:", e);
-    }
-  }, []);
-  
-  useEffect(() => {
-    if (genderDepartment !== 'Female') {
-      setIncludeLingerie(false);
-    }
-  }, [genderDepartment]);
+  }, [country, numSimilarItems, addLog, maxPrice, includeLingerie, genderDepartment]);
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -300,6 +275,32 @@ export default function StyleSeerPage() {
       setIsLoading(false);
     }
   }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice, includeLingerie]);
+
+  useEffect(() => {
+    try {
+      const storedPreference = localStorage.getItem(HISTORY_PREFERENCE_KEY);
+      const save = storedPreference === 'true';
+      setSaveHistoryPreference(save);
+
+      if (save) {
+        const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedHistory) {
+          const parsedHistory = JSON.parse(storedHistory);
+          if (Array.isArray(parsedHistory)) {
+            setSearchHistory(parsedHistory.map((item: any) => ({ ...item, imageUri: undefined })));
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load history from localStorage:", e);
+    }
+  }, []);
+  
+  useEffect(() => {
+    if (genderDepartment !== 'Female') {
+      setIncludeLingerie(false);
+    }
+  }, [genderDepartment]);
 
 
   const handleReset = useCallback(() => {
@@ -481,3 +482,5 @@ export default function StyleSeerPage() {
     </div>
   );
 }
+
+    
