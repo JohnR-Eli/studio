@@ -392,13 +392,20 @@ export default function StyleSeerPage() {
   const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     if (!isNaN(value)) {
-      setMinPrice(Math.max(1, value));
+        const newMinPrice = Math.max(1, value);
+        setMinPrice(newMinPrice);
+        // Ensure maxPrice is not less than the new minPrice
+        if (maxPrice < newMinPrice) {
+            setMaxPrice(newMinPrice);
+        }
     }
   };
   
   const toggleDebugPanel = () => {
     setShowDebugPanel(prev => !prev);
   };
+  
+  const sliderMax = minPrice > 1 ? minPrice * 5 : 5000;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -505,7 +512,7 @@ export default function StyleSeerPage() {
                                     <Input id="min-price-input" type="number" value={minPrice} onChange={handleMinPriceChange} placeholder="Min $" className="w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"/>
                                     <div className="flex-1">
                                       <div className="flex justify-between text-xs text-muted-foreground"><span>${minPrice}</span><span>${maxPrice}</span></div>
-                                      <Slider id="price-range-slider" min={1} max={5000} step={10} value={[maxPrice]} onValueChange={(value: number[]) => setMaxPrice(value[0])} className="mt-1"/>
+                                      <Slider id="price-range-slider" min={minPrice} max={sliderMax} step={10} value={[maxPrice]} onValueChange={(value: number[]) => setMaxPrice(value[0])} className="mt-1"/>
                                     </div>
                                 </div>
                             </div>
@@ -560,5 +567,7 @@ export default function StyleSeerPage() {
     </div>
   );
 }
+
+    
 
     
