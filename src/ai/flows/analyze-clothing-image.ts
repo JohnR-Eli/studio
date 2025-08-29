@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -23,15 +24,20 @@ const AnalyzeClothingImageInputSchema = z.object({
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
 
 const preferredBrandsForStyleApproximation = [
-  "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
-  "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
-  "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
-  "LUISAVIAROMA", "FootJoy", "The Luxury Closet", 
-  "Belstaff", "Belstaff UK", "Culture Kings US", "D1 Milano", "Double F", 
-  "Jansport", "Kut from the Kloth", "UGG US"
+    "NIKE", "North Face UK", "LUISAVIAROMA", "Luxury Closet", "FootJoy",
+    "Fabletics Europe", "Mytheresa", "Poshmark", "PUMA India", "Skechers",
+    "Culture Kings US", "Kut from the Kloth", "UGG US", "JanSport",
+    "Champion.com (Hanesbrands Inc.)", "Belstaff", "The Double F", "Belstaff UK",
+    "D1 Milano", "Belstaff (Europe)", "Street Machine Skate", "Backcountry",
+    "Taylor Stitch", "Fanatics", "NFL", "NHL", "NBA", "MLB", "MLS",
+    "GOLF le Fleur", "Osprey", "PGA", "PUMA Thailand", "Flag & Anthem",
+    "FEATURE", "Unique Vintage", "Kappa", "Allbirds"
 ];
 
-const lingerieBrands = ["Savage X Fenty", "Bali Bras", "Maidenform", "The Tight Spot", "onehanesplace.com"];
+const lingerieBrands = [
+    "Savage x Fenty", "The Tight Spot", "onehanesplace.com (Hanesbrands Inc.)",
+    "Maidenform", "Bali Bras"
+];
 
 const clothingCategories = [
     "Top", "Tops", "Clothing", "Bottom", "Bottoms", "Pants", "Footwear", "Shoes",
