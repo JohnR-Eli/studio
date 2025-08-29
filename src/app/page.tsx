@@ -79,11 +79,12 @@ const preferredBrands = [
     "D1 Milano", "Belstaff (Europe)", "Street Machine Skate", "Backcountry",
     "Taylor Stitch", "Fanatics", "NFL", "NHL", "NBA", "MLB", "MLS",
     "GOLF le Fleur", "Osprey", "PGA", "PUMA Thailand", "Flag & Anthem",
-    "FEATURE", "Unique Vintage", "Kappa", "Allbirds"
+    "FEATURE", "Unique Vintage", "Kappa", "Allbirds",
+    "onehanesplace.com (Hanesbrands Inc.)"
 ];
   
 const lingerieBrands = [
-    "Savage x Fenty", "The Tight Spot", "onehanesplace.com (Hanesbrands Inc.)",
+    "Savage x Fenty", "The Tight Spot",
     "Maidenform", "Bali Bras"
 ];
 
