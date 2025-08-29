@@ -40,14 +40,16 @@ export type FindComplementaryItemsOutput = z.infer<typeof FindComplementaryItems
 const preferredBrandsForStyleApproximation = [
     "NIKE", "North Face UK", "LUISAVIAROMA", "Luxury Closet", "FootJoy",
     "Fabletics Europe", "Mytheresa", "Poshmark", "PUMA India", "Skechers",
-    "Culture Kings US", "Kut from the Kloth", "UGG US", "JanSport",
+    "Culture Kings US", "Kut from the Kloth", "UGG US",
     "Champion.com (Hanesbrands Inc.)", "Belstaff", "The Double F", "Belstaff UK",
-    "D1 Milano", "Belstaff (Europe)", "Street Machine Skate", "Backcountry",
+    "Belstaff (Europe)", "Street Machine Skate", "Backcountry",
     "Taylor Stitch", "Fanatics", "NFL", "NHL", "NBA", "MLB", "MLS",
-    "GOLF le Fleur", "Osprey", "PGA", "PUMA Thailand", "Flag & Anthem",
+    "GOLF le Fleur", "PGA", "PUMA Thailand", "Flag & Anthem",
     "FEATURE", "Unique Vintage", "Kappa", "Allbirds",
     "onehanesplace.com (Hanesbrands Inc.)"
 ];
+
+const accessoryOnlyBrands = ["JanSport", "D1 Milano", "Osprey"];
 
 const lingerieBrands = [
     "Savage x Fenty", "The Tight Spot",
@@ -92,30 +94,41 @@ const findComplementaryItemsFlow = ai.defineFlow(
 
     const numToFetch = numItemsPerCategory || 2;
     
-    const brandList = (gender === 'Female' && includeLingerie)
-      ? [...preferredBrandsForStyleApproximation, ...lingerieBrands]
-      : preferredBrandsForStyleApproximation;
-
+    let brandList = [...preferredBrandsForStyleApproximation, ...accessoryOnlyBrands];
+    if (gender === 'Female' && includeLingerie) {
+      brandList = [...brandList, ...lingerieBrands];
+    }
+    
     for (const category of categoriesToFind) {
       if (!category) continue;
-      const randomBrand = brandList[Math.floor(Math.random() * brandList.length)];
+      
+      let brandToUse: string;
+      if (category === 'Accessories') {
+        // Prioritize accessory-only brands for the 'Accessories' category
+        brandToUse = accessoryOnlyBrands[Math.floor(Math.random() * accessoryOnlyBrands.length)];
+      } else {
+        // Exclude accessory-only brands for non-accessory categories
+        const nonAccessoryBrands = brandList.filter(b => !accessoryOnlyBrands.includes(b));
+        brandToUse = nonAccessoryBrands[Math.floor(Math.random() * nonAccessoryBrands.length)];
+      }
+
       try {
-        const apiInput = {howMany: numToFetch, category, brand: randomBrand, gender, country};
+        const apiInput = {howMany: numToFetch, category, brand: brandToUse, gender, country};
         logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
         const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
         logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
         
         const items = apiResponse.imageURLs.map((imageUrl, index) => ({
           category: category,
-          itemTitle: `${randomBrand} ${category}`,
+          itemTitle: `${brandToUse} ${category}`,
           vendorLink: apiResponse.URLs[index],
           imageURL: imageUrl,
         }));
 
         complementaryItems.push(...items);
       } catch (error) {
-        console.error(`Error fetching complementary items for category ${category} and brand ${randomBrand}:`, error);
-        logs.push({ event: 'error', flow: 'callExternalApi', data: { category, randomBrand, error: error instanceof Error ? error.message : String(error) } });
+        console.error(`Error fetching complementary items for category ${category} and brand ${brandToUse}:`, error);
+        logs.push({ event: 'error', flow: 'callExternalApi', data: { category, brandToUse, error: error instanceof Error ? error.message : String(error) } });
       }
     }
 
