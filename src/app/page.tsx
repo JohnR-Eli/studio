@@ -55,8 +55,8 @@ export type LogEntry = {
 };
 
 const MAX_HISTORY_ITEMS = 10;
-const LOCAL_STORAGE_KEY = 'fittedToolSearchHistory';
-const HISTORY_PREFERENCE_KEY = 'fittedToolSaveHistoryPreference';
+const LOCAL_STORAGE_KEY = 'styleSeerSearchHistory';
+const HISTORY_PREFERENCE_KEY = 'styleSeerSaveHistoryPreference';
 
 const topCountries = [
     "United States",
@@ -554,7 +554,7 @@ export default function StyleSeerPage() {
                         )}
                     </div>
                     <footer className="text-center py-8 border-t border-border/60 mt-auto">
-                        <p className="text-sm text-muted-foreground">Fitted Tool &copy; {new Date().getFullYear()} - Your AI Fashion Assistant.</p>
+                        <p className="text-sm text-muted-foreground">StyleSeer &copy; {new Date().getFullYear()} - Your AI Fashion Assistant.</p>
                     </footer>
                 </main>
             </div>
@@ -567,7 +567,3 @@ export default function StyleSeerPage() {
     </div>
   );
 }
-
-    
-
-    
