@@ -38,11 +38,11 @@ const FindComplementaryItemsOutputSchema = z.object({
 export type FindComplementaryItemsOutput = z.infer<typeof FindComplementaryItemsOutputSchema>;
 
 const preferredBrandsForStyleApproximation = [
-    "NIKE", "North Face UK", "LUISAVIAROMA", "Luxury Closet", "FootJoy",
+    "NIKE", "North Face UK", "Luxury Closet", "FootJoy",
     "Fabletics Europe", "Mytheresa", "Poshmark", "PUMA India", "Skechers",
     "Culture Kings US", "Kut from the Kloth", "UGG US",
     "Champion.com (Hanesbrands Inc.)", "Belstaff", "The Double F", "Belstaff UK",
-    "Belstaff (Europe)", "Street Machine Skate", "Backcountry",
+    "Belstaff (Europe)", "Backcountry",
     "Taylor Stitch", "Fanatics", "NFL", "NHL", "NBA", "MLB", "MLS",
     "GOLF le Fleur", "PGA", "PUMA Thailand", "Flag & Anthem",
     "FEATURE", "Unique Vintage", "Kappa", "Allbirds",

@@ -72,11 +72,11 @@ const topCountries = [
 ];
 
 const preferredBrands = [
-    "NIKE", "North Face UK", "LUISAVIAROMA", "Luxury Closet", "FootJoy",
+    "NIKE", "North Face UK", "Luxury Closet", "FootJoy",
     "Fabletics Europe", "Mytheresa", "Poshmark", "PUMA India", "Skechers",
     "Culture Kings US", "Kut from the Kloth", "UGG US", "JanSport",
     "Champion.com (Hanesbrands Inc.)", "Belstaff", "The Double F", "Belstaff UK",
-    "D1 Milano", "Belstaff (Europe)", "Street Machine Skate", "Backcountry",
+    "D1 Milano", "Belstaff (Europe)", "Backcountry",
     "Taylor Stitch", "Fanatics", "NFL", "NHL", "NBA", "MLB", "MLS",
     "GOLF le Fleur", "Osprey", "PGA", "PUMA Thailand", "Flag & Anthem",
     "FEATURE", "Unique Vintage", "Kappa", "Allbirds",
