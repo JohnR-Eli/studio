@@ -276,6 +276,10 @@ export default function StyleSeerPage() {
 
         if (brandsToFetch.length > 0) {
             handleBrandSelect(brandsToFetch, categoryToUse, determinedGender, dataUri, clothingAnalysisResult.clothingItems);
+        } else {
+            // If no brands were recommended, we need to stop the loading spinners.
+            setIsLoadingSimilarItems(false);
+            setIsLoadingComplementaryItems(false);
         }
 
         const { similarItems, complementaryItems, ...historyAnalysisData } = currentAnalysis;
