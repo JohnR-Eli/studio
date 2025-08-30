@@ -128,14 +128,14 @@ export default function StyleSeerPage() {
     setLogs(prev => [...prev, ...newLogs]);
   }, []);
 
-  const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: 'Male' | 'Female' | 'Unisex', photoDataUri: string, clothingItems: string[]) => {
+  const handleBrandSelect = useCallback(async (brands: string[], category: string, gender: 'Male' | 'Female' | 'Unisex', photoDataUri: string, clothingItems: string[]) => {
     setIsLoadingSimilarItems(true);
-    setCurrentLoadingMessage(`Searching for ${category} from ${brandName}...`);
+    setCurrentLoadingMessage(`Searching for items from recommended brands...`);
 
     const inputPayload = {
       photoDataUri: photoDataUri.substring(0, 50) + '...',
       clothingItem: category,
-      targetBrandName: brandName,
+      targetBrandNames: brands,
       country,
       numSimilarItems,
       minPrice,
@@ -149,7 +149,7 @@ export default function StyleSeerPage() {
       const result = await findSimilarItems({
         photoDataUri,
         clothingItem: category,
-        targetBrandName: brandName,
+        targetBrandNames: brands,
         country,
         numSimilarItems,
         minPrice,
@@ -200,9 +200,9 @@ export default function StyleSeerPage() {
 
     } catch (e: any) {
       addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
-      console.error(`Error fetching items for brand ${brandName}:`, e);
+      console.error(`Error fetching items for brands ${brands.join(', ')}:`, e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
-      setError(`Could not fetch items for ${brandName}: ${errorMessage}`);
+      setError(`Could not fetch items: ${errorMessage}`);
       setAnalysis(prevAnalysis => ({
         ...prevAnalysis!,
         similarItems: [],
@@ -260,19 +260,22 @@ export default function StyleSeerPage() {
         };
         setAnalysis(currentAnalysis);
         
-        const brandToFetch = selectedBrand !== 'Auto'
-            ? selectedBrand
-            : (clothingAnalysisResult.identifiedBrand && clothingAnalysisResult.identifiedBrand !== "null") 
-              ? clothingAnalysisResult.identifiedBrand 
-              : (clothingAnalysisResult.approximatedBrands && clothingAnalysisResult.approximatedBrands[0]);
-
+        let brandsToFetch: string[] = [];
+        if (selectedBrand !== 'Auto') {
+            brandsToFetch = [selectedBrand];
+        } else {
+            const identified = (clothingAnalysisResult.identifiedBrand && clothingAnalysisResult.identifiedBrand !== "null") ? [clothingAnalysisResult.identifiedBrand] : [];
+            const approximated = clothingAnalysisResult.approximatedBrands || [];
+            const alternative = clothingAnalysisResult.alternativeBrands || [];
+            brandsToFetch = [...new Set([...identified, ...approximated, ...alternative])];
+        }
 
         const categoryToUse = selectedCategory !== 'Auto'
             ? selectedCategory
             : (clothingAnalysisResult.clothingItems.length > 0 ? clothingAnalysisResult.clothingItems[0] : 'Tops');
 
-        if (brandToFetch) {
-            handleBrandSelect(brandToFetch, categoryToUse, determinedGender, dataUri, clothingAnalysisResult.clothingItems);
+        if (brandsToFetch.length > 0) {
+            handleBrandSelect(brandsToFetch, categoryToUse, determinedGender, dataUri, clothingAnalysisResult.clothingItems);
         }
 
         const { similarItems, complementaryItems, ...historyAnalysisData } = currentAnalysis;

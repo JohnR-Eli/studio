@@ -25,7 +25,7 @@ const FindSimilarItemsInputSchema = z.object({
       "The original image of the clothing item, as a data URI. It must include a MIME type (e.g., 'image/jpeg', 'image/png') and use Base64 encoding for the image data. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
   clothingItem: z.string().describe('The type or category of clothing item (e.g., dress, shirt, pants, or a general placeholder like "clothing item from image").'),
-  targetBrandName: z.string().describe('The specific brand name to primarily find similar items from. This brand is typically one of the alternative brands suggested by the image analysis step.'),
+  targetBrandNames: z.array(z.string()).describe('The specific brand names to primarily find similar items from. These brands are typically ones suggested by the image analysis step.'),
   country: z.string().optional().describe('The country of residence of the user, used to prioritize vendors from that country. If not provided, it will default to United States.'),
   numSimilarItems: z.number().optional().default(5).describe('The number of similar items to find. Defaults to 5.'),
   minPrice: z.number().optional().describe('The minimum price for the items to find.'),
@@ -61,52 +61,63 @@ const findSimilarItemsFlow = ai.defineFlow(
   },
   async (input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> => {
     const logs: Omit<LogEntry, 'id' | 'timestamp'>[] = [];
-    let currentCategory = input.userProvidedCategory || input.clothingItem;
-    let attempts = 0;
-    const maxAttempts = 3;
+    const allSimilarItems: SimilarItem[] = [];
 
-    while (attempts < maxAttempts) {
-        try {
-            const country = input.country || 'United States';
-            const numSimilarItems = input.numSimilarItems || 5;
-            const gender = input.gender || 'Unisex';
-            
-            const apiInput = {
-                howMany: numSimilarItems,
-                category: currentCategory,
-                brand: input.targetBrandName,
-                gender,
-                country: country,
-            };
-            logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
-            
-            const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
-            logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
+    const country = input.country || 'United States';
+    const gender = input.gender || 'Unisex';
 
-            if (apiResponse.imageURLs && apiResponse.imageURLs.length > 0) {
-                let similarItems = apiResponse.imageURLs.map((imageUrl, index) => ({
-                    itemTitle: `${input.targetBrandName} ${currentCategory}`,
-                    itemDescription: `A ${currentCategory} from ${input.targetBrandName} that matches the style. Found in ${country}.`,
-                    vendorLink: apiResponse.URLs[index],
-                    imageURL: imageUrl,
-                }));
-                return { similarItems, logs };
-            } else {
-                logs.push({ event: 'error', flow: 'callExternalApi', data: `Empty response for category: ${currentCategory}`});
-                if (input.userProvidedCategory) {
-                    // If the user provided the category and it failed, don't try others.
-                    break;
+    for (const brand of input.targetBrandNames) {
+        let currentCategory = input.userProvidedCategory || input.clothingItem;
+        let attempts = 0;
+        const maxAttempts = 2; // Try the initial category, then one fallback.
+        let foundItemForBrand = false;
+
+        while (attempts < maxAttempts && !foundItemForBrand) {
+            try {
+                const apiInput = {
+                    howMany: 1, // We just want one item per brand.
+                    category: currentCategory,
+                    brand,
+                    gender,
+                    country,
+                };
+                logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
+                
+                const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
+                logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
+
+                if (apiResponse.imageURLs && apiResponse.imageURLs.length > 0) {
+                    const similarItem: SimilarItem = {
+                        itemTitle: `${brand} ${currentCategory}`,
+                        itemDescription: `A ${currentCategory} from ${brand} that matches the style. Found in ${country}.`,
+                        vendorLink: apiResponse.URLs[0],
+                        imageURL: apiResponse.imageURLs[0],
+                    };
+                    allSimilarItems.push(similarItem);
+                    foundItemForBrand = true; // Stop trying for this brand
+                } else {
+                    logs.push({ event: 'error', flow: 'callExternalApi', data: `Empty response for brand ${brand}, category: ${currentCategory}`});
+                    if (input.userProvidedCategory) {
+                        // If the user provided the category and it failed, don't try others.
+                        break;
+                    }
+                    // Try a different category for the same brand on the next attempt
+                    const otherCategories = clothingCategories.filter(c => c !== currentCategory && c !== input.clothingItem);
+                    if (otherCategories.length > 0) {
+                       currentCategory = otherCategories[Math.floor(Math.random() * otherCategories.length)];
+                    } else {
+                        break; // No other categories to try
+                    }
                 }
-                const otherCategories = clothingCategories.filter(c => c !== currentCategory && c !== input.clothingItem);
-                currentCategory = otherCategories[Math.floor(Math.random() * otherCategories.length)];
+            } catch (e) {
+                console.error(`Error in findSimilarItemsFlow for brand ${brand}:`, e);
+                logs.push({ event: 'error', flow: 'callExternalApi', data: { brand, error: e instanceof Error ? e.message : String(e) } });
+                break; // Stop trying for this brand if there's a hard error
             }
-        } catch (e) {
-            console.error(`Error in findSimilarItemsFlow for brand ${input.targetBrandName}:`, e);
-            logs.push({ event: 'error', flow: 'callExternalApi', data: e instanceof Error ? e.message : String(e) });
-            break; 
+            attempts++;
         }
-        attempts++;
     }
-    return { similarItems: [], logs };
+    
+    return { similarItems: allSimilarItems, logs };
   }
 );
