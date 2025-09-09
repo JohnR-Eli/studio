@@ -184,6 +184,8 @@ export default function StyleSeerPage() {
             gender: gender,
             country: country,
             numItemsPerCategory: numSimilarItems,
+            minPrice: minPrice,
+            maxPrice: maxPrice,
             // Only include lingerie if the USER selected Female, not if the AI detected it.
             includeLingerie: includeLingerie && genderDepartment === 'Female',
         };

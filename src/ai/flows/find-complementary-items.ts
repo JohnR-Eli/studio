@@ -20,14 +20,18 @@ const FindComplementaryItemsInputSchema = z.object({
   country: z.string().optional().describe('The country for sourcing items.'),
   numItemsPerCategory: z.number().optional().default(2).describe('Number of items to find for each complementary category.'),
   includeLingerie: z.boolean().optional().describe("Whether to include lingerie brands. Only considered when gender is 'Female'."),
+  minPrice: z.number().optional().describe('The minimum price for the items.'),
+  maxPrice: z.number().optional().describe('The maximum price for the items.'),
 });
 export type FindComplementaryItemsInput = z.infer<typeof FindComplementaryItemsInputSchema>;
 
 const ComplementaryItemSchema = z.object({
   category: z.string().describe('The category of the complementary item (e.g., "Bottoms", "Shoes").'),
-  itemTitle: z.string().describe('A concise title for the item.'),
+  productName: z.string().describe('A concise title for the item.'),
   vendorLink: z.string().url().describe('A direct URL to the product page.'),
   imageURL: z.string().url().describe('A URL for the item\'s image.'),
+  merchantName: z.string().describe('The name of the merchant selling the item.'),
+  itemPrice: z.string().describe('The price of the item.'),
 });
 export type ComplementaryItem = z.infer<typeof ComplementaryItemSchema>;
 
@@ -80,7 +84,7 @@ const findComplementaryItemsFlow = ai.defineFlow(
     inputSchema: FindComplementaryItemsInputSchema,
     outputSchema: FindComplementaryItemsOutputSchema,
   },
-  async ({ originalClothingCategories, gender, country = 'United States', numItemsPerCategory = 2, includeLingerie = false }): Promise<FindComplementaryItemsOutput> => {
+  async ({ originalClothingCategories, gender, country = 'United States', numItemsPerCategory = 2, includeLingerie = false, minPrice, maxPrice }): Promise<FindComplementaryItemsOutput> => {
     const complementaryItems: ComplementaryItem[] = [];
     const logs: Omit<LogEntry, 'id' | 'timestamp'>[] = [];
 
@@ -113,16 +117,18 @@ const findComplementaryItemsFlow = ai.defineFlow(
       }
 
       try {
-        const apiInput = {howMany: numToFetch, category, brand: brandToUse, gender, country};
+        const apiInput = {howMany: numToFetch, category, brand: brandToUse, gender, country, minPrice, maxPrice};
         logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
-        const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
+        const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country, apiInput.minPrice, apiInput.maxPrice);
         logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
         
         const items = apiResponse.imageURLs.map((imageUrl, index) => ({
           category: category,
-          itemTitle: `${brandToUse} ${category}`,
+          productName: apiResponse.productNames?.[index] || `${brandToUse} ${category}`,
           vendorLink: apiResponse.URLs[index],
           imageURL: imageUrl,
+          merchantName: apiResponse.merchantNames?.[index] || 'Unknown Merchant',
+          itemPrice: apiResponse.itemPrices?.[index] || 'Price not available',
         }));
 
         complementaryItems.push(...items);

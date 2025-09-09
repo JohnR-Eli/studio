@@ -14,9 +14,11 @@ interface SimilarItem {
 
 interface ComplementaryItem {
     category: string;
-    itemTitle: string;
+    productName: string;
     vendorLink: string;
     imageURL: string;
+    merchantName: string;
+    itemPrice: string;
 }
 
 interface AnalysisResultsProps {
@@ -196,16 +198,24 @@ export default function AnalysisResults({
                                         <h3 className="text-lg font-semibold mb-3 text-center">{category}</h3>
                                         <div className="grid grid-cols-2 gap-4">
                                             {items.map((item, index) => (
-                                                <a href={item.vendorLink} key={`${category}-${index}`} target="_blank" rel="noopener noreferrer" className="block group">
-                                                <Card className="overflow-hidden">
-                                                    <div className="aspect-[4/5] relative w-full bg-muted/30">
-                                                    <NextImage src={item.imageURL} alt={item.itemTitle} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                <div key={`${category}-${index}`} className="group relative flex flex-col">
+                                                    <div className="text-center mb-2">
+                                                        <h4 className="text-sm font-semibold truncate" title={item.productName}>
+                                                            {item.productName}
+                                                        </h4>
                                                     </div>
-                                                    <div className='p-2 text-center'>
-                                                        <p className="text-xs font-semibold truncate">{item.itemTitle}</p>
+                                                    <a href={item.vendorLink} target="_blank" rel="noopener noreferrer" title={item.productName} className="block">
+                                                        <Card className="overflow-hidden rounded-lg shadow-md transition-all hover:shadow-xl">
+                                                            <div className="aspect-[4/5] relative w-full bg-muted/30">
+                                                                <NextImage src={item.imageURL} alt={item.productName} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                            </div>
+                                                        </Card>
+                                                    </a>
+                                                    <div className="mt-2 text-center">
+                                                        <p className="text-xs text-muted-foreground">{item.merchantName}</p>
+                                                        <p className="text-sm font-bold">{item.itemPrice} {currency}</p>
                                                     </div>
-                                                </Card>
-                                                </a>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
