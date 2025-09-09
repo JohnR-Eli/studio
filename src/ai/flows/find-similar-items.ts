@@ -36,10 +36,11 @@ const FindSimilarItemsInputSchema = z.object({
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
 const SimilarItemSchema = z.object({
-  itemTitle: z.string().describe('A concise title for the similar clothing item, including its brand if identifiable (e.g., "Nike Sportswear Club Hoodie"). This will be the main display text for the item.'),
-  itemDescription: z.string().describe('A detailed description (2-3 sentences) of the similar clothing item, highlighting key features, materials, or why it is a good match. This will be shown as a preview on hover.'),
-  vendorLink: z.string().describe('A direct URL to the product page on an online vendor site if a specific match is found. If not, a URL to a search results page on the vendor\'s site for the item (e.g., "https://vendor.com/search?q=item+description") or a relevant category page. This must be a valid URL.'),
-  imageURL: z.string().url().describe("A URL for the item's image.")
+  productName: z.string(),
+  merchantName: z.string(),
+  itemPrice: z.string(),
+  vendorLink: z.string().url(),
+  imageURL: z.string().url(),
 });
 export type SimilarItem = z.infer<typeof SimilarItemSchema>;
 
@@ -97,13 +98,16 @@ const findSimilarItemsFlow = ai.defineFlow(
                 logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
 
                 if (apiResponse.imageURLs && apiResponse.imageURLs.length > 0) {
-                    const similarItem: SimilarItem = {
-                        itemTitle: `${brand} ${currentCategory}`,
-                        itemDescription: `A ${currentCategory} from ${brand} that matches the style. Found in ${country}.`,
-                        vendorLink: apiResponse.URLs[0],
-                        imageURL: apiResponse.imageURLs[0],
-                    };
-                    allSimilarItems.push(similarItem);
+                    for (let i = 0; i < apiResponse.imageURLs.length; i++) {
+                        const similarItem: SimilarItem = {
+                            productName: apiResponse.productNames?.[i] || 'TBD',
+                            merchantName: apiResponse.merchantNames?.[i] || 'TBD',
+                            itemPrice: apiResponse.itemPrices?.[i] || 'TBD',
+                            vendorLink: apiResponse.URLs[i],
+                            imageURL: apiResponse.imageURLs[i],
+                        };
+                        allSimilarItems.push(similarItem);
+                    }
                     foundItemForBrand = true; // Stop trying for this brand
                 } else {
                     logs.push({ event: 'error', flow: 'callExternalApi', data: `Empty response for brand ${brand}, category: ${currentCategory}`});

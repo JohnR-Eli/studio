@@ -5,9 +5,10 @@ import { Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Sparkles, Loader2, Se
 import NextImage from 'next/image';
 
 interface SimilarItem {
-    itemTitle: string;
-    itemDescription: string;
-    vendorLink: string;
+    productName: string;
+    merchantName: string;
+    itemPrice: string;
+    vendorLink:string;
     imageURL: string;
 }
 
@@ -155,9 +156,24 @@ export default function AnalysisResults({
                         ) : similarItems && similarItems.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                 {similarItems.map((item, index) => (
-                                    <a href={item.vendorLink} key={index} target="_blank" rel="noopener noreferrer" className="block group">
-                                        <Card className="overflow-hidden"><div className="aspect-[4/5] relative w-full bg-muted/30"><NextImage src={item.imageURL} alt={item.itemTitle} fill className="object-cover transition-transform duration-300 group-hover:scale-105"/></div></Card>
-                                    </a>
+                                    <div key={index} className="group relative flex flex-col">
+                                        <div className="text-center mb-2">
+                                            <h4 className="text-sm font-semibold truncate" title={item.productName}>
+                                                {item.productName}
+                                            </h4>
+                                        </div>
+                                        <a href={item.vendorLink} target="_blank" rel="noopener noreferrer" title={item.productName} className="block">
+                                            <Card className="overflow-hidden rounded-lg shadow-md transition-all hover:shadow-xl">
+                                                <div className="aspect-[4/5] relative w-full bg-muted/30">
+                                                    <NextImage src={item.imageURL} alt={item.productName} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                </div>
+                                            </Card>
+                                        </a>
+                                        <div className="mt-2 text-center">
+                                            <p className="text-xs text-muted-foreground">{item.merchantName}</p>
+                                            <p className="text-sm font-bold">{item.itemPrice} USD</p>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         ) : null}

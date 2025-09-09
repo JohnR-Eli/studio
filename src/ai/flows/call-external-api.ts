@@ -6,6 +6,9 @@ import { z } from 'zod';
 const ApiResponseSchema = z.object({
   imageURLs: z.array(z.string()),
   URLs: z.array(z.string()),
+  productNames: z.array(z.string()).optional(),
+  merchantNames: z.array(z.string()).optional(),
+  itemPrices: z.array(z.string()).optional(),
 });
 
 export type ApiResponse = z.infer<typeof ApiResponseSchema>;
