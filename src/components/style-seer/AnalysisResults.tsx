@@ -31,6 +31,7 @@ interface AnalysisResultsProps {
   complementaryItems?: ComplementaryItem[];
   isLoadingSimilarItems: boolean;
   isLoadingComplementaryItems: boolean;
+  currency: string;
 }
 
 // Helper to group complementary items by category
@@ -58,6 +59,7 @@ export default function AnalysisResults({
   complementaryItems,
   isLoadingSimilarItems,
   isLoadingComplementaryItems,
+  currency,
 }: AnalysisResultsProps) {
   const hasAnyDataToShow = imagePreview || 
                            (clothingItems && clothingItems.length > 0) || 
@@ -102,7 +104,7 @@ export default function AnalysisResults({
             {imagePreview && !hasPrimaryAnalysisDetails && !hasAlternativeBrandsToExplore && ( 
                 <Card className="shadow-lg rounded-xl border-dashed border-amber-500 bg-amber-500/10">
                 <CardHeader><CardTitle className="flex items-center gap-2 text-xl text-amber-700"><AlertTriangle size={24} /> No Details Detected</CardTitle></CardHeader>
-                <CardContent><p className="text-md text-amber-600">We couldn't identify clothing details for this image.</p></CardContent>
+                <CardContent><p className="text-md text-amber-600">We couldn&apos;t identify clothing details for this image.</p></CardContent>
                 </Card>
             )}
 
@@ -171,7 +173,7 @@ export default function AnalysisResults({
                                         </a>
                                         <div className="mt-2 text-center">
                                             <p className="text-xs text-muted-foreground">{item.merchantName}</p>
-                                            <p className="text-sm font-bold">{item.itemPrice} USD</p>
+                                            <p className="text-sm font-bold">{item.itemPrice} {currency}</p>
                                         </div>
                                     </div>
                                 ))}

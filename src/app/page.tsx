@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BackendLogs from '@/components/style-seer/BackendLogs';
+import { getCurrencyByCountry } from '@/utils/currency';
 
 
 const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
@@ -106,6 +107,7 @@ export default function StyleSeerPage() {
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
   const [country, setCountry] = useState('United States');
+  const [currency, setCurrency] = useState('USD');
   const [genderDepartment, setGenderDepartment] = useState<'Male' | 'Female' | 'Unisex' | 'Auto'>('Auto');
   const [selectedBrand, setSelectedBrand] = useState('Auto');
   const [numSimilarItems, setNumSimilarItems] = useState(5);
@@ -357,6 +359,10 @@ export default function StyleSeerPage() {
     }
   }, [genderDepartment]);
 
+  useEffect(() => {
+    setCurrency(getCurrencyByCountry(country));
+  }, [country]);
+
 
   const handleReset = useCallback(() => {
     setImageUri(null);
@@ -553,6 +559,7 @@ export default function StyleSeerPage() {
                             complementaryItems={analysis.complementaryItems}
                             isLoadingSimilarItems={isLoadingSimilarItems}
                             isLoadingComplementaryItems={isLoadingComplementaryItems}
+                            currency={currency}
                             />
                             <div className="mt-10 text-center">
                             <Button onClick={handleReset} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
