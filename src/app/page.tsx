@@ -24,6 +24,9 @@ import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BackendLogs from '@/components/style-seer/BackendLogs';
 import { getCurrencyByCountry } from '@/utils/currency';
+import Confetti from 'react-confetti';
+import FlashyButton from '@/components/style-seer/FlashyButton';
+import { useWindowSize } from '@/hooks/use-window-size';
 
 
 const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
@@ -119,7 +122,16 @@ export default function StyleSeerPage() {
   const [includeLingerie, setIncludeLingerie] = useState(false);
   const [availableBrands, setAvailableBrands] = useState(preferredBrands);
   const [selectedCategory, setSelectedCategory] = useState('Auto');
+  const [showConfetti, setShowConfetti] = useState(false);
+  const { width, height } = useWindowSize();
 
+
+  const handleFlashyButtonClick = () => {
+    setShowConfetti(true);
+    setTimeout(() => {
+      setShowConfetti(false);
+    }, 5000); // Hide confetti after 5 seconds
+  };
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
     const logsToAdd = Array.isArray(log) ? log : [log];
@@ -427,6 +439,7 @@ export default function StyleSeerPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
+      {showConfetti && <Confetti width={width} height={height} recycle={false} onConfettiComplete={() => setShowConfetti(false)} style={{ zIndex: 9999 }} />}
       <Header onIconClick={toggleDebugPanel} />
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
         <TabsList className="w-full">
@@ -475,6 +488,9 @@ export default function StyleSeerPage() {
                         {!isLoading && !analysis && (
                         <div className="flex flex-col items-center">
                             <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
+                            <div className="mt-8">
+                                <FlashyButton onClick={handleFlashyButtonClick} />
+                            </div>
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">Country of Residence</Label>
                                 <Select value={country} onValueChange={setCountry}>
