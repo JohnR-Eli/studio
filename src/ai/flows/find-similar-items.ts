@@ -80,10 +80,20 @@ const findSimilarItemsFlow = ai.defineFlow(
                     brand,
                     gender,
                     country,
+                    minPrice: input.minPrice,
+                    maxPrice: input.maxPrice,
                 };
                 logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
                 
-                const apiResponse = await callExternalApi(apiInput.howMany, apiInput.category, apiInput.brand, apiInput.gender, apiInput.country);
+                const apiResponse = await callExternalApi(
+                    apiInput.howMany,
+                    apiInput.category,
+                    apiInput.brand,
+                    apiInput.gender,
+                    apiInput.country,
+                    apiInput.minPrice,
+                    apiInput.maxPrice
+                );
                 logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
 
                 if (apiResponse.imageURLs && apiResponse.imageURLs.length > 0) {

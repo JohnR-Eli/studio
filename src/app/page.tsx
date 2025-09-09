@@ -72,20 +72,21 @@ const topCountries = [
 ];
 
 const preferredBrands = [
-    "NIKE", "North Face UK", "Luxury Closet", "FootJoy",
-    "Fabletics Europe", "Mytheresa", "Poshmark", "PUMA India", "Skechers",
-    "Culture Kings US", "Kut from the Kloth", "UGG US", "JanSport",
-    "Champion.com (Hanesbrands Inc.)", "Belstaff", "The Double F", "Belstaff UK",
-    "D1 Milano", "Belstaff (Europe)", "Backcountry",
-    "Taylor Stitch", "Fanatics", "NFL", "NHL", "NBA", "MLB", "MLS",
-    "GOLF le Fleur", "Osprey", "PGA", "PUMA Thailand", "Flag & Anthem",
-    "FEATURE", "Unique Vintage", "Kappa", "Allbirds",
-    "onehanesplace.com (Hanesbrands Inc.)"
+    "Allbirds", "Allbirds AU", "Allbirds NZ", "Backcountry", "Belstaff", "Belstaff (Europe)", "Belstaff UK",
+    "Bloomingdale", "Bloomingdale AU", "Bloomingdale UK", "Champion.com (Hanesbrands Inc.)", "Culture Kings",
+    "Culture Kings US", "D1 Milano", "Dynamite Clothing", "Fanatics", "Fanatics UK", "Fabletics Europe",
+    "Fabletics eur", "Fabletics uk", "FEATURE", "Flag & Anthem", "FootJoy", "GOLF le Fleur", "Garage Clothing",
+    "JanSport", "Kappa", "Kut from the Kloth", "LUISAVIAROMA", "Luxury Closet", "Luxury Closet eur",
+    "Luxury Closet uk", "MLB", "MLB AU", "MLB CA", "MLB UK", "MLS", "MLS CA", "MYTHERESA", "MYTHERESA au",
+    "MYTHERESA ca", "MYTHERESA eur", "MYTHERESA uk", "Mytheresa", "NBA", "NBA AU", "NBA CA", "NBA UK",
+    "NFL", "NFL CA", "NFL UK", "NHL", "NHL CA", "NHL UK", "NIKE", "Nisolo", "North Face UK", "North Face uk",
+    "Osprey", "PGA", "PUMA", "PUMA India", "PUMA Thailand", "Poshmark", "SKECHERS eur", "Skechers",
+    "Street Machine Skate", "Taylor Stitch", "The Double F", "UGG", "UGG US", "Unique Vintage", "WNBA"
 ];
   
 const lingerieBrands = [
-    "Savage x Fenty", "The Tight Spot",
-    "Maidenform", "Bali Bras"
+    "Savage x Fenty", "The Tight Spot", "The Tight Spot ca", "The Tight Spot eur", "The Tight Spot uk", "The Tight Spot au",
+    "Maidenform", "Bali Bras", "onehanesplace"
 ];
 
 const clothingCategories = [
@@ -238,6 +239,7 @@ export default function StyleSeerPage() {
       photoDataUri: dataUri.substring(0, 50) + '...',
       genderDepartment,
       includeLingerie: includeLingerie && genderDepartment === 'Female',
+      country,
     };
     addLog({ event: 'invoke', flow: 'analyzeClothingImage', data: inputPayload });
 
@@ -246,6 +248,7 @@ export default function StyleSeerPage() {
         photoDataUri: dataUri, 
         genderDepartment,
         includeLingerie: includeLingerie && genderDepartment === 'Female',
+        country,
       });
       addLog({ event: 'response', flow: 'analyzeClothingImage', data: clothingAnalysisResult || "No result" });
 
@@ -397,9 +400,9 @@ export default function StyleSeerPage() {
   };
 
   const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
+    const value = parseFloat(e.target.value);
     if (!isNaN(value)) {
-        const newMinPrice = Math.max(1, value);
+        const newMinPrice = Math.max(0.01, value);
         setMinPrice(newMinPrice);
         // Ensure maxPrice is not less than the new minPrice
         if (maxPrice < newMinPrice) {
@@ -412,7 +415,7 @@ export default function StyleSeerPage() {
     setShowDebugPanel(prev => !prev);
   };
   
-  const sliderMax = minPrice > 1 ? minPrice * 5 : 5000;
+  const sliderMax = minPrice > 1 ? minPrice * 100 : 9000;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -516,10 +519,10 @@ export default function StyleSeerPage() {
                             <div className="mt-4 w-full max-w-sm">
                                 <Label className="text-sm font-medium text-muted-foreground">Price Range</Label>
                                 <div className="flex items-center gap-4 mt-1">
-                                    <Input id="min-price-input" type="number" value={minPrice} onChange={handleMinPriceChange} placeholder="Min $" className="w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"/>
+                                    <Input id="min-price-input" type="number" step="0.01" value={minPrice} onChange={handleMinPriceChange} placeholder="Min $" className="w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"/>
                                     <div className="flex-1">
-                                      <div className="flex justify-between text-xs text-muted-foreground"><span>${minPrice}</span><span>${maxPrice}</span></div>
-                                      <Slider id="price-range-slider" min={minPrice} max={sliderMax} step={10} value={[maxPrice]} onValueChange={(value: number[]) => setMaxPrice(value[0])} className="mt-1"/>
+                                      <div className="flex justify-between text-xs text-muted-foreground"><span>${minPrice.toFixed(2)}</span><span>${maxPrice.toFixed(2)}</span></div>
+                                      <Slider id="price-range-slider" min={minPrice} max={sliderMax} step={0.01} value={[maxPrice]} onValueChange={(value: number[]) => setMaxPrice(value[0])} className="mt-1"/>
                                     </div>
                                 </div>
                             </div>

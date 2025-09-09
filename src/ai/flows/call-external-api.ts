@@ -15,7 +15,9 @@ export async function callExternalApi(
   category: string,
   brand: string,
   gender: string,
-  country: string
+  country: string,
+  minPrice?: number,
+  maxPrice?: number
 ): Promise<ApiResponse> {
   const endpoint = 'https://idx-fitted-affiliategit-93924427-92591340310.us-east1.run.app/process';
   const queryParams = new URLSearchParams({
@@ -25,6 +27,13 @@ export async function callExternalApi(
     gender,
     country,
   });
+
+  if (minPrice !== undefined) {
+    queryParams.append('minPrice', minPrice.toString());
+  }
+  if (maxPrice !== undefined) {
+    queryParams.append('maxPrice', maxPrice.toString());
+  }
 
   const url = `${endpoint}?${queryParams}`;
 
