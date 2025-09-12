@@ -35,7 +35,7 @@ const FindSimilarItemsInputSchema = z.object({
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
 
-const SimilarItemSchema = z.object({
+export const SimilarItemSchema = z.object({
   productName: z.string(),
   merchantName: z.string(),
   itemPrice: z.string(),

@@ -7,6 +7,7 @@ import { analyzeClothingImage, AnalyzeClothingImageInput, AnalyzeClothingImageOu
 const AnalyzeClosetInputSchema = z.object({
   photoDataUris: z.array(z.string()).describe("An array of photos of clothing, as data URIs."),
   country: z.string().optional().describe("The user's country of residence."),
+  genderDepartment: z.enum(["Male", "Female", "Unisex", "Auto"]).optional().describe("The user-specified gender department for the clothing items."),
 });
 export type AnalyzeClosetInput = z.infer<typeof AnalyzeClosetInputSchema>;
 
@@ -38,7 +39,7 @@ const analyzeClosetFlow = ai.defineFlow(
             const analysisPromises = input.photoDataUris.map(uri => {
                 const singleImageInput: AnalyzeClothingImageInput = {
                     photoDataUri: uri,
-                    genderDepartment: 'Auto', // For closet analysis, we can let the AI decide for each item
+                    genderDepartment: input.genderDepartment || 'Auto',
                     country: input.country,
                 };
                 return analyzeClothingImage(singleImageInput);
