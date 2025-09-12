@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { findComplementaryItems, ComplementaryItem, FindComplementaryItemsOutput } from '@/ai/flows/find-complementary-items';
 import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
-import { AlertCircle, RotateCcw, History as HistoryIcon, FileText, ShoppingBag } from 'lucide-react';
+import { AlertCircle, RotateCcw, History as HistoryIcon, FileText, ShoppingBag, Shirt } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BackendLogs from '@/components/style-seer/BackendLogs';
+import ClosetMode from '@/components/style-seer/ClosetMode';
 import { getCurrencyByCountry } from '@/utils/currency';
 
 
@@ -434,6 +435,10 @@ export default function StyleSeerPage() {
                 <ShoppingBag size={18} className="mr-2" />
                 Recommendations
             </TabsTrigger>
+            <TabsTrigger value="closet" className="flex-1">
+                <Shirt size={18} className="mr-2" />
+                Closet Mode
+            </TabsTrigger>
             <TabsTrigger value="logs" className="flex-1">
                 <FileText size={18} className="mr-2" />
                 Backend Logs
@@ -577,6 +582,9 @@ export default function StyleSeerPage() {
                     </footer>
                 </main>
             </div>
+        </TabsContent>
+        <TabsContent value="closet" className="flex-1 overflow-y-auto">
+            <ClosetMode />
         </TabsContent>
         <TabsContent value="logs" className="flex-1 overflow-y-auto">
             <BackendLogs logs={logs} />
