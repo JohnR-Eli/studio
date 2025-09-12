@@ -9,7 +9,7 @@ import { AlertCircle } from 'lucide-react';
 import { analyzeCloset, ClosetAnalysisResult } from '@/ai/flows/analyze-closet';
 import ClosetAnalysisResults from './ClosetAnalysisResults';
 import { findClosetRecommendations } from '@/ai/flows/find-closet-recommendations';
-import { SimilarItem } from '@/ai/flows/find-similar-items';
+import { SimilarItem } from '@/ai/flows/types';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';

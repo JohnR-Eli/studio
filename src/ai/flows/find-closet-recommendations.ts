@@ -4,7 +4,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { callExternalApi } from './call-external-api';
 import { LogEntry } from '@/app/page';
-import { SimilarItem, SimilarItemSchema } from './find-similar-items';
+import { SimilarItem, SimilarItemSchema } from './types';
 
 const FindClosetRecommendationsInputSchema = z.object({
   dominantClothingItems: z.array(z.string()).describe("A list of the user's dominant clothing items."),

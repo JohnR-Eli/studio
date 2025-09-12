@@ -1,6 +1,6 @@
 "use client";
 
-import { SimilarItem } from "@/ai/flows/find-similar-items";
+import { SimilarItem } from "@/ai/flows/types";
 import { Card, CardContent } from "@/components/ui/card";
 import NextImage from "next/image";
 import { Button } from "@/components/ui/button";
