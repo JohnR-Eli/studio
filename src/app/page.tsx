@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { findComplementaryItems, ComplementaryItem, FindComplementaryItemsOutput } from '@/ai/flows/find-complementary-items';
 import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
-import { AlertCircle, RotateCcw, History as HistoryIcon, FileText, ShoppingBag, Shirt } from 'lucide-react';
+import { AlertCircle, RotateCcw, History as HistoryIcon, FileText, ShoppingBag } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -23,10 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BackendLogs from '@/components/style-seer/BackendLogs';
-import ClosetMode from '@/components/style-seer/ClosetMode';
 import { getCurrencyByCountry } from '@/utils/currency';
-import { LogEntry } from '@/ai/flows/types';
-import { preferredBrands, lingerieBrands } from '@/lib/constants';
 
 
 const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
@@ -50,6 +47,14 @@ export type HistoryEntry = {
   analysisResult: AnalysisState; 
 };
 
+export type LogEntry = {
+  id: string;
+  timestamp: string;
+  event: 'invoke' | 'response' | 'error';
+  flow: 'analyzeClothingImage' | 'findSimilarItems' | 'findComplementaryItems' | 'callExternalApi';
+  data: any;
+};
+
 const MAX_HISTORY_ITEMS = 10;
 const LOCAL_STORAGE_KEY = 'styleSeerSearchHistory';
 const HISTORY_PREFERENCE_KEY = 'styleSeerSaveHistoryPreference';
@@ -65,6 +70,24 @@ const topCountries = [
     "Pakistan",
     "Nigeria",
     "Philippines"
+];
+
+const preferredBrands = [
+    "Allbirds", "Allbirds AU", "Allbirds NZ", "Backcountry", "Belstaff", "Belstaff (Europe)", "Belstaff UK",
+    "Bloomingdale", "Bloomingdale AU", "Bloomingdale UK", "Champion.com (Hanesbrands Inc.)", "Culture Kings",
+    "Culture Kings US", "D1 Milano", "Dynamite Clothing", "Fanatics", "Fanatics UK", "Fabletics Europe",
+    "Fabletics eur", "Fabletics uk", "FEATURE", "Flag & Anthem", "FootJoy", "GOLF le Fleur", "Garage Clothing",
+    "JanSport", "Kappa", "Kut from the Kloth", "LUISAVIAROMA", "Luxury Closet", "Luxury Closet eur",
+    "Luxury Closet uk", "MLB", "MLB AU", "MLB CA", "MLB UK", "MLS", "MLS CA", "MYTHERESA", "MYTHERESA au",
+    "MYTHERESA ca", "MYTHERESA eur", "MYTHERESA uk", "Mytheresa", "NBA", "NBA AU", "NBA CA", "NBA UK",
+    "NFL", "NFL CA", "NFL UK", "NHL", "NHL CA", "NHL UK", "NIKE", "Nisolo", "North Face UK", "North Face uk",
+    "Osprey", "PGA", "PUMA", "PUMA India", "PUMA Thailand", "Poshmark", "SKECHERS eur", "Skechers",
+    "Street Machine Skate", "Taylor Stitch", "The Double F", "UGG", "UGG US", "Unique Vintage", "WNBA"
+];
+
+const lingerieBrands = [
+    "Savage x Fenty", "The Tight Spot", "The Tight Spot ca", "The Tight Spot eur", "The Tight Spot uk", "The Tight Spot au",
+    "Maidenform", "Bali Bras", "onehanesplace"
 ];
 
 const clothingCategories = [
@@ -411,10 +434,6 @@ export default function StyleSeerPage() {
                 <ShoppingBag size={18} className="mr-2" />
                 Recommendations
             </TabsTrigger>
-            <TabsTrigger value="closet" className="flex-1">
-                <Shirt size={18} className="mr-2" />
-                Closet Mode
-            </TabsTrigger>
             <TabsTrigger value="logs" className="flex-1">
                 <FileText size={18} className="mr-2" />
                 Backend Logs
@@ -558,9 +577,6 @@ export default function StyleSeerPage() {
                     </footer>
                 </main>
             </div>
-        </TabsContent>
-        <TabsContent value="closet" className="flex-1 overflow-y-auto">
-            <ClosetMode />
         </TabsContent>
         <TabsContent value="logs" className="flex-1 overflow-y-auto">
             <BackendLogs logs={logs} />

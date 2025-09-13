@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { callExternalApi } from './call-external-api';
-import { LogEntry, SimilarItemSchema, SimilarItem } from './types';
+import { LogEntry } from '@/app/page';
 
 const clothingCategories = [
     "Tops", "Bottoms", "Footwear", "Accessories", "Activewear", "Outerwear", 
@@ -34,6 +34,15 @@ const FindSimilarItemsInputSchema = z.object({
   userProvidedCategory: z.string().optional().describe('A clothing category explicitly provided by the user, which should override AI detection.'),
 });
 export type FindSimilarItemsInput = z.infer<typeof FindSimilarItemsInputSchema>;
+
+const SimilarItemSchema = z.object({
+  productName: z.string(),
+  merchantName: z.string(),
+  itemPrice: z.string(),
+  vendorLink: z.string().url(),
+  imageURL: z.string().url(),
+});
+export type SimilarItem = z.infer<typeof SimilarItemSchema>;
 
 const FindSimilarItemsOutputSchema = z.object({
   similarItems: z.array(SimilarItemSchema).describe('List of up to a specified number of similar clothing items with their details and vendor links, suitable for adults (early 20s and older). These should primarily be from the targetBrandName, supplemented by other preferred brands if needed.'),
