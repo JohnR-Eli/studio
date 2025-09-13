@@ -233,22 +233,30 @@ export default function ClosetMode() {
     setRecommendationError(null);
 
     try {
-      const analysisResults: AnalyzeClothingImageOutput[] = [];
-      for (const uri of imageUris) {
-        // Update loading message for user feedback
-        setCurrentLoadingMessage(`Analyzing image ${analysisResults.length + 1} of ${imageUris.length}...`);
-        const result = await analyzeClothingImage({
-          photoDataUri: uri,
-          country: country,
-          genderDepartment: genderDepartment,
-        });
-        if (result) {
-          analysisResults.push(result);
-        }
-      }
+      setCurrentLoadingMessage(`Analyzing ${imageUris.length} images...`);
+
+      const analysisPromises = imageUris.map(uri =>
+          analyzeClothingImage({
+              photoDataUri: uri,
+              country: country,
+              genderDepartment: genderDepartment,
+          })
+      );
+
+      const settledResults = await Promise.allSettled(analysisPromises);
+
+      const analysisResults: AnalyzeClothingImageOutput[] = settledResults
+          .filter((result): result is PromiseFulfilledResult<AnalyzeClothingImageOutput> => result.status === 'fulfilled' && result.value !== null)
+          .map(result => result.value);
 
       if (analysisResults.length === 0) {
-        throw new Error("Could not analyze any of the images.");
+        // Log errors for debugging
+        settledResults.forEach(result => {
+            if (result.status === 'rejected') {
+                console.error("Image analysis failed:", result.reason);
+            }
+        });
+        throw new Error("Could not analyze any of the images. Please check the console for details.");
       }
 
       // Aggregation logic moved from backend to frontend

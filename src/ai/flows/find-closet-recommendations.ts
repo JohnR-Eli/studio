@@ -40,30 +40,35 @@ const findClosetRecommendationsFlow = ai.defineFlow(
     const gender = (input.gender && input.gender !== 'Auto') ? input.gender : 'Unisex';
     const category = input.dominantClothingItems[0] || 'clothing'; // Use the most dominant item as the category
 
-    for (const brand of input.targetBrandNames) {
-        try {
-            const apiInput = {
-                howMany: 2, // As requested by the user
-                category,
-                brand,
-                gender,
-                country,
-                minPrice: input.minPrice,
-                maxPrice: input.maxPrice,
-            };
-            logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
+    const recommendationPromises = input.targetBrandNames.map(brand => {
+        const apiInput = {
+            howMany: 2, // As requested by the user
+            category,
+            brand,
+            gender,
+            country,
+            minPrice: input.minPrice,
+            maxPrice: input.maxPrice,
+        };
+        logs.push({ event: 'invoke', flow: 'callExternalApi', data: apiInput });
+        return callExternalApi(
+            apiInput.howMany,
+            apiInput.category,
+            apiInput.brand,
+            apiInput.gender,
+            apiInput.country,
+            apiInput.minPrice,
+            apiInput.maxPrice
+        );
+    });
 
-            const apiResponse = await callExternalApi(
-                apiInput.howMany,
-                apiInput.category,
-                apiInput.brand,
-                apiInput.gender,
-                apiInput.country,
-                apiInput.minPrice,
-                apiInput.maxPrice
-            );
-            logs.push({ event: 'response', flow: 'callExternalApi', data: apiResponse });
+    const settledResults = await Promise.allSettled(recommendationPromises);
 
+    settledResults.forEach((result, index) => {
+        const brand = input.targetBrandNames[index];
+        if (result.status === 'fulfilled' && result.value) {
+            const apiResponse = result.value;
+            logs.push({ event: 'response', flow: 'callExternalApi', data: { brand, response: apiResponse } });
             if (apiResponse.imageURLs && apiResponse.imageURLs.length > 0) {
                 for (let i = 0; i < apiResponse.imageURLs.length; i++) {
                     const recommendedItem: SimilarItem = {
@@ -78,11 +83,11 @@ const findClosetRecommendationsFlow = ai.defineFlow(
             } else {
                 logs.push({ event: 'error', flow: 'callExternalApi', data: `Empty response for brand ${brand}, category: ${category}`});
             }
-        } catch (e) {
-            console.error(`Error in findClosetRecommendationsFlow for brand ${brand}:`, e);
-            logs.push({ event: 'error', flow: 'callExternalApi', data: { brand, error: e instanceof Error ? e.message : String(e) } });
+        } else if (result.status === 'rejected') {
+            console.error(`Error in findClosetRecommendationsFlow for brand ${brand}:`, result.reason);
+            logs.push({ event: 'error', flow: 'callExternalApi', data: { brand, error: result.reason instanceof Error ? result.reason.message : String(result.reason) } });
         }
-    }
+    });
 
     return { recommendedItems: allRecommendedItems, logs };
   }
