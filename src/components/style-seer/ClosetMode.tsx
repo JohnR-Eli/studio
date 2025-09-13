@@ -17,6 +17,9 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { getCurrencyByCountry } from '@/utils/currency';
 import ClosetRecommendations from './ClosetRecommendations';
+import { recommendBrandsFromTags } from '@/ai/flows/recommend-brands-from-tags';
+import { clothingStyles } from '@/lib/constants';
+import TagSelector from './TagSelector';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -63,6 +66,9 @@ export default function ClosetMode() {
   const [currency, setCurrency] = useState('USD');
   const [closetHistory, setClosetHistory] = useState<ClosetHistoryEntry[]>([]);
   const [saveClosetHistoryPreference, setSaveClosetHistoryPreference] = useState<boolean>(false);
+  const [inputMode, setInputMode] = useState<'image' | 'tag'>('image');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [includeLingerie, setIncludeLingerie] = useState(false);
 
   useEffect(() => {
     setCurrency(getCurrencyByCountry(country));
@@ -160,6 +166,57 @@ export default function ClosetMode() {
         setRecommendationError(`An error occurred while fetching recommendations: ${e.message}`);
     } finally {
         setIsLoadingRecommendations(false);
+    }
+  };
+
+  const handleTagRecommendation = async () => {
+    if (selectedTags.length === 0) {
+        setError("Please select at least one tag.");
+        return;
+    }
+
+    setIsLoading(true); // Reuse the main loading state
+    setError(null);
+    setAnalysis(null);
+    setRecommendedItems([]);
+    setRecommendationError(null);
+    setCurrentLoadingMessage("Getting brand recommendations...");
+
+    try {
+        const brandResult = await recommendBrandsFromTags({
+            tags: selectedTags,
+            includeLingerie: includeLingerie,
+        });
+
+        if (brandResult && brandResult.recommendedBrands.length > 0) {
+            setCurrentLoadingMessage("Finding recommended items...");
+
+            const dummyClothingItems = selectedTags
+                .filter(t => !clothingStyles.includes(t))
+                .map(item => ({ item, count: 1 }));
+
+            const dummyStyles = selectedTags
+                .filter(t => clothingStyles.includes(t))
+                .map(style => ({ style, count: 1 }));
+
+            const dummyAnalysis: ClosetAnalysisResult = {
+                dominantClothingItems: dummyClothingItems,
+                dominantStyles: dummyStyles,
+                recommendedBrands: brandResult.recommendedBrands,
+            };
+
+            setAnalysis(dummyAnalysis); // Set dummy analysis to show the tags
+            await handleFindRecommendations(dummyAnalysis);
+
+        } else {
+            setRecommendationError("Could not find any brand recommendations for the selected tags.");
+        }
+
+    } catch (e: any) {
+        console.error("Tag recommendation error:", e);
+        setError(`An error occurred: ${e.message}`);
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -326,16 +383,46 @@ export default function ClosetMode() {
                                 </div>
                             </div>
                         </div>
+                        {genderDepartment === 'Female' && (
+                            <div className="w-full max-w-sm flex items-center space-x-2 mb-4">
+                                <Checkbox id="lingerie-checkbox-closet" checked={includeLingerie} onCheckedChange={(checked) => setIncludeLingerie(!!checked)} />
+                                <Label htmlFor="lingerie-checkbox-closet" className="text-sm font-medium text-muted-foreground cursor-pointer">Include lingerie?</Label>
+                            </div>
+                        )}
                     </div>
 
-                    <ClosetUpload onImagesUpload={handleImagesUpload} isLoading={isLoading} />
-
-                    {imageUris.length > 0 && !isLoading && (
-                      <div className="mt-8">
-                        <Button onClick={handleAnalyzeCloset} size="lg" disabled={isLoading}>
-                          {isLoading ? 'Analyzing...' : `Analyze ${imageUris.length} Item(s)`}
-                        </Button>
-                      </div>
+                    {inputMode === 'image' ? (
+                        <div className="w-full flex flex-col items-center">
+                            <ClosetUpload onImagesUpload={handleImagesUpload} isLoading={isLoading} />
+                            <div className="mt-6 text-center">
+                                <p className="text-sm text-muted-foreground mb-2">OR</p>
+                                <Button variant="outline" onClick={() => setInputMode('tag')}>
+                                    Use Tags Instead
+                                </Button>
+                            </div>
+                            {imageUris.length > 0 && !isLoading && (
+                              <div className="mt-8">
+                                <Button onClick={handleAnalyzeCloset} size="lg" disabled={isLoading}>
+                                  {isLoading ? 'Analyzing...' : `Analyze ${imageUris.length} Item(s)`}
+                                </Button>
+                              </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="w-full flex flex-col items-center">
+                            <TagSelector onSelectionChange={setSelectedTags} />
+                            <div className="mt-8">
+                                <Button onClick={handleTagRecommendation} size="lg" disabled={selectedTags.length === 0 || isLoading}>
+                                    Get Recommendations
+                                </Button>
+                            </div>
+                            <div className="mt-6 text-center">
+                                <p className="text-sm text-muted-foreground mb-2">OR</p>
+                                <Button variant="outline" onClick={() => setInputMode('image')}>
+                                    Upload Images Instead
+                                </Button>
+                            </div>
+                        </div>
                     )}
 
                     {isLoading && (

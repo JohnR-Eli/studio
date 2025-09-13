@@ -11,6 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { clothingCategories, clothingStyles, preferredBrands, lingerieBrands } from '@/lib/constants';
 
 const AnalyzeClothingImageInputSchema = z.object({
   photoDataUri: z
@@ -23,35 +24,6 @@ const AnalyzeClothingImageInputSchema = z.object({
   country: z.string().optional().describe("The user's country of residence. Use this to select brands that are relevant to the user's region."),
 });
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
-
-const preferredBrandsForStyleApproximation = [
-    "Allbirds", "Allbirds AU", "Allbirds NZ", "Backcountry", "Belstaff", "Belstaff (Europe)", "Belstaff UK",
-    "Bloomingdale", "Bloomingdale AU", "Bloomingdale UK", "Champion.com (Hanesbrands Inc.)", "Culture Kings",
-    "Culture Kings US", "D1 Milano", "Dynamite Clothing", "Fanatics", "Fanatics UK", "Fabletics Europe",
-    "Fabletics eur", "Fabletics uk", "FEATURE", "Flag & Anthem", "FootJoy", "GOLF le Fleur", "Garage Clothing",
-    "JanSport", "Kappa", "Kut from the Kloth", "LUISAVIAROMA", "Luxury Closet", "Luxury Closet eur",
-    "Luxury Closet uk", "MLB", "MLB AU", "MLB CA", "MLB UK", "MLS", "MLS CA", "MYTHERESA", "MYTHERESA au",
-    "MYTHERESA ca", "MYTHERESA eur", "MYTHERESA uk", "Mytheresa", "NBA", "NBA AU", "NBA CA", "NBA UK",
-    "NFL", "NFL CA", "NFL UK", "NHL", "NHL CA", "NHL UK", "NIKE", "Nisolo", "North Face UK", "North Face uk",
-    "Osprey", "PGA", "PUMA", "PUMA India", "PUMA Thailand", "Poshmark", "SKECHERS eur", "Skechers",
-    "Street Machine Skate", "Taylor Stitch", "The Double F", "UGG", "UGG US", "Unique Vintage", "WNBA"
-];
-
-const lingerieBrands = [
-    "Savage x Fenty", "The Tight Spot", "The Tight Spot ca", "The Tight Spot eur", "The Tight Spot uk", "The Tight Spot au",
-    "Maidenform", "Bali Bras", "onehanesplace"
-];
-
-const clothingCategories = [
-    "Top", "Tops", "Clothing", "Bottom", "Bottoms", "Pants", "Footwear", "Shoes",
-    "Activewear", "Outerwear", "Sweaters", "Accessory", "Accessories",
-    "TShirts", "Jeans", "Hats", "Headware", "Sweatshirts"
-];
-
-const clothingStyles = [
-    "Casual", "Formal", "Vintage", "Streetwear", "Sporty", "Bohemian",
-    "Minimalist", "Gothic", "Preppy", "Grunge", "Artistic", "Exotic"
-];
 
 const AnalyzeClothingImageOutputSchema = z.object({
   clothingItems: z.array(z.string()).describe('List of clothing items or categories detected in the image (e.g., "T-Shirt", "Jeans", "Sneakers").'),
@@ -87,8 +59,8 @@ const analyzeClothingImageFlow = ai.defineFlow(
         : null;
 
       const brandList = (input.genderDepartment === 'Female' && input.includeLingerie) 
-        ? [...preferredBrandsForStyleApproximation, ...lingerieBrands]
-        : preferredBrandsForStyleApproximation;
+        ? [...preferredBrands, ...lingerieBrands]
+        : preferredBrands;
 
       const promptInput = { ...input };
       let analysisPrompt: any;
