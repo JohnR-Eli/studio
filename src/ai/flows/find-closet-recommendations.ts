@@ -22,8 +22,13 @@ const FindClosetRecommendationsOutputSchema = z.object({
 export type FindClosetRecommendationsOutput = z.infer<typeof FindClosetRecommendationsOutputSchema>;
 
 
-export async function findClosetRecommendations(input: FindClosetRecommendationsInput): Promise<FindClosetRecommendationsOutput> {
-  return findClosetRecommendationsFlow(input);
+export async function findClosetRecommendations(input: FindClosetRecommendationsInput): Promise<FindClosetRecommendationsOutput | null> {
+  try {
+    return await findClosetRecommendationsFlow(input);
+  } catch (e) {
+    console.error("Error in findClosetRecommendations:", e);
+    return null;
+  }
 }
 
 const findClosetRecommendationsFlow = ai.defineFlow(

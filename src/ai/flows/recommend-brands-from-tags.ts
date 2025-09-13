@@ -15,8 +15,13 @@ const RecommendBrandsFromTagsOutputSchema = z.object({
 });
 export type RecommendBrandsFromTagsOutput = z.infer<typeof RecommendBrandsFromTagsOutputSchema>;
 
-export async function recommendBrandsFromTags(input: RecommendBrandsFromTagsInput): Promise<RecommendBrandsFromTagsOutput> {
-  return recommendBrandsFromTagsFlow(input);
+export async function recommendBrandsFromTags(input: RecommendBrandsFromTagsInput): Promise<RecommendBrandsFromTagsOutput | null> {
+  try {
+    return await recommendBrandsFromTagsFlow(input);
+  } catch (e) {
+    console.error("Error in recommendBrandsFromTags:", e);
+    return null;
+  }
 }
 
 const recommendBrandsFromTagsFlow = ai.defineFlow(
