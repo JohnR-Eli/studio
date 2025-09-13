@@ -11,7 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { callExternalApi } from './call-external-api';
-import { LogEntry } from '@/app/page';
+import { LogEntry } from './types';
 
 
 const FindComplementaryItemsInputSchema = z.object({

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { LogEntry } from '@/app/page';
+import { LogEntry } from '@/ai/flows/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';

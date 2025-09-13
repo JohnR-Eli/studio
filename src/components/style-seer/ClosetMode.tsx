@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from 'lucide-react';
-import { analyzeCloset, ClosetAnalysisResult } from '@/ai/flows/analyze-closet';
+import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
+import { ClosetAnalysisResult } from '@/ai/flows/types';
 import ClosetAnalysisResults from './ClosetAnalysisResults';
 import { findClosetRecommendations } from '@/ai/flows/find-closet-recommendations';
 import { SimilarItem } from '@/ai/flows/types';
@@ -54,6 +55,7 @@ export default function ClosetMode() {
   const [recommendedItems, setRecommendedItems] = useState<SimilarItem[]>([]);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
+  const [currentLoadingMessage, setCurrentLoadingMessage] = useState("Analyzing image...");
   const [country, setCountry] = useState('United States');
   const [genderDepartment, setGenderDepartment] = useState<'Male' | 'Female' | 'Unisex' | 'Auto'>('Auto');
   const [minPrice, setMinPrice] = useState(1);
@@ -174,34 +176,84 @@ export default function ClosetMode() {
     setRecommendationError(null);
 
     try {
-      const result = await analyzeCloset({
-        photoDataUris: imageUris,
-        country: country,
-        genderDepartment: genderDepartment,
-      });
-      if (result) {
-        setAnalysis(result);
-        if (result.recommendedBrands.length > 0) {
-            handleFindRecommendations(result);
+      const analysisResults: AnalyzeClothingImageOutput[] = [];
+      for (const uri of imageUris) {
+        // Update loading message for user feedback
+        setCurrentLoadingMessage(`Analyzing image ${analysisResults.length + 1} of ${imageUris.length}...`);
+        const result = await analyzeClothingImage({
+          photoDataUri: uri,
+          country: country,
+          genderDepartment: genderDepartment,
+        });
+        if (result) {
+          analysisResults.push(result);
         }
-        if (saveClosetHistoryPreference) {
-            const newEntry: ClosetHistoryEntry = {
-                id: new Date().toISOString() + Math.random(),
-                timestamp: new Date(),
-                imageUris: imageUris,
-                analysisResult: result,
-            };
-            setClosetHistory(prevHistory => [newEntry, ...prevHistory].slice(0, 10));
-        }
-      } else {
-        setError("The closet analysis returned no result.");
       }
+
+      if (analysisResults.length === 0) {
+        throw new Error("Could not analyze any of the images.");
+      }
+
+      // Aggregation logic moved from backend to frontend
+      setCurrentLoadingMessage("Aggregating results...");
+      const clothingItemsCount: Record<string, number> = {};
+      const stylesCount: Record<string, number> = {};
+      const allRecommendedBrands = new Set<string>();
+
+      analysisResults.forEach(result => {
+          result.clothingItems.forEach(item => {
+              clothingItemsCount[item] = (clothingItemsCount[item] || 0) + 1;
+          });
+          result.styles.forEach(style => {
+              stylesCount[style] = (stylesCount[style] || 0) + 1;
+          });
+          result.approximatedBrands.forEach(brand => allRecommendedBrands.add(brand));
+          result.alternativeBrands.forEach(brand => allRecommendedBrands.add(brand));
+          if (result.identifiedBrand) {
+              allRecommendedBrands.add(result.identifiedBrand);
+          }
+      });
+
+      const sortedClothingItems = Object.entries(clothingItemsCount)
+          .sort((a, b) => b[1] - a[1])
+          .map(([item, count]) => ({ item, count }));
+
+      const sortedStyles = Object.entries(stylesCount)
+          .sort((a, b) => b[1] - a[1])
+          .map(([style, count]) => ({ style, count }));
+
+      const recommendedBrands = Array.from(allRecommendedBrands);
+
+      const aggregatedResult: ClosetAnalysisResult = {
+          dominantClothingItems: sortedClothingItems.slice(0, 5),
+          dominantStyles: sortedStyles.slice(0, 5),
+          recommendedBrands: recommendedBrands.slice(0, 10),
+      };
+
+      setAnalysis(aggregatedResult);
+
+      if (aggregatedResult.recommendedBrands.length > 0) {
+          setCurrentLoadingMessage("Finding recommendations...");
+          await handleFindRecommendations(aggregatedResult);
+      }
+
+      if (saveClosetHistoryPreference) {
+        const newEntry: ClosetHistoryEntry = {
+            id: new Date().toISOString() + Math.random(),
+            timestamp: new Date(),
+            imageUris: imageUris,
+            analysisResult: aggregatedResult,
+        };
+        setClosetHistory(prevHistory => [newEntry, ...prevHistory].slice(0, 10));
+      }
+
     } catch (e: any) {
       console.error("Closet Analysis Error:", e);
       const errorMessage = e instanceof Error ? e.message : String(e);
       setError(`An error occurred during closet analysis: ${errorMessage}`);
     } finally {
       setIsLoading(false);
+      setCurrentLoadingMessage("Analyzing image..."); // Reset message
     }
   };
 
@@ -288,7 +340,7 @@ export default function ClosetMode() {
 
                     {isLoading && (
                       <div className="mt-10">
-                        <LoadingSpinner message="Analyzing your closet..." />
+            <LoadingSpinner message={currentLoadingMessage} />
                       </div>
                     )}
 

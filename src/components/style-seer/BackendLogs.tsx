@@ -1,7 +1,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { LogEntry } from '@/app/page';
+import { LogEntry } from '@/ai/flows/types';
 
 interface BackendLogsProps {
   logs: LogEntry[];

@@ -2,7 +2,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClosetAnalysisResult } from "@/ai/flows/analyze-closet";
+import { ClosetAnalysisResult } from "@/ai/flows/types";
 import { Badge } from "@/components/ui/badge";
 
 interface ClosetAnalysisResultsProps {

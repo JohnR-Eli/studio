@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BackendLogs from '@/components/style-seer/BackendLogs';
 import ClosetMode from '@/components/style-seer/ClosetMode';
 import { getCurrencyByCountry } from '@/utils/currency';
+import { LogEntry } from '@/ai/flows/types';
 
 
 const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
@@ -46,14 +47,6 @@ export type HistoryEntry = {
   timestamp: Date;
   imageUri?: string; 
   analysisResult: AnalysisState; 
-};
-
-export type LogEntry = {
-  id: string;
-  timestamp: string;
-  event: 'invoke' | 'response' | 'error';
-  flow: 'analyzeClothingImage' | 'findSimilarItems' | 'findComplementaryItems' | 'callExternalApi';
-  data: any;
 };
 
 const MAX_HISTORY_ITEMS = 10;

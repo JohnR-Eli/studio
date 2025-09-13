@@ -11,8 +11,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import { callExternalApi } from './call-external-api';
-import { LogEntry } from '@/app/page';
-import { SimilarItemSchema, SimilarItem } from './types';
+import { LogEntry, SimilarItemSchema, SimilarItem } from './types';
 
 const clothingCategories = [
     "Tops", "Bottoms", "Footwear", "Accessories", "Activewear", "Outerwear", 
