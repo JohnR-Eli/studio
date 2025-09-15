@@ -4,6 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/style-seer/ImageUpload';
+import WardrobeTable, { WardrobeItem } from '@/components/style-seer/WardrobeTable';
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import SearchHistory from '@/components/style-seer/SearchHistory';
@@ -18,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import DebugPanel from '@/components/style-seer/DebugPanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from '@/components/ui/slider';
@@ -119,6 +121,8 @@ export default function StyleSeerPage() {
   const [includeLingerie, setIncludeLingerie] = useState(false);
   const [availableBrands, setAvailableBrands] = useState(preferredBrands);
   const [selectedCategory, setSelectedCategory] = useState('Auto');
+  const [uploadMode, setUploadMode] = useState<'single' | 'wardrobe'>('single');
+  const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([{ category: '', brand: '' }]);
 
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
@@ -474,7 +478,20 @@ export default function StyleSeerPage() {
                     <div className="container mx-auto px-4 py-8 md:py-12 flex-grow">
                         {!isLoading && !analysis && (
                         <div className="flex flex-col items-center">
-                            <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
+                            <div className="flex items-center space-x-2 mb-4">
+                                <Label htmlFor="upload-mode-switch">Single</Label>
+                                <Switch
+                                    id="upload-mode-switch"
+                                    checked={uploadMode === 'wardrobe'}
+                                    onCheckedChange={(checked) => setUploadMode(checked ? 'wardrobe' : 'single')}
+                                />
+                                <Label htmlFor="upload-mode-switch">Wardrobe</Label>
+                            </div>
+                            {uploadMode === 'single' ? (
+                                <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
+                            ) : (
+                                <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
+                            )}
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">Country of Residence</Label>
                                 <Select value={country} onValueChange={setCountry}>
