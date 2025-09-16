@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { findComplementaryItems, ComplementaryItem, FindComplementaryItemsOutput } from '@/ai/flows/find-complementary-items';
 import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
+import { callWardrobeApi, ApiResponse } from '@/ai/flows/call-external-api';
 import { AlertCircle, RotateCcw, History as HistoryIcon, FileText, ShoppingBag } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -329,7 +330,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
+  }, [addLog, country, handleBrandSelect, genderDepartment, includeLingerie, selectedBrand, selectedCategory]);
 
   const handleWardrobeRecommendation = useCallback(async () => {
     const validWardrobeItems = wardrobe.filter(item => item.category.trim() !== '' && item.brand.trim() !== '');
@@ -348,28 +349,46 @@ export default function StyleSeerPage() {
 
     const determinedGender = genderDepartment === 'Auto' ? 'Unisex' : genderDepartment;
 
-    const inputPayload = {
-      isWardrobeFlow: true,
-      wardrobe: validWardrobeItems,
+    const apiInput = {
+      howMany: numSimilarItems,
+      gender: determinedGender,
       country,
-      numSimilarItems,
+      wardrobe: validWardrobeItems,
       minPrice,
       maxPrice,
-      gender: determinedGender,
-    } as const;
-    addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
+    };
+    addLog({ event: 'invoke', flow: 'callExternalApi', data: { ...apiInput, name: 'callWardrobeApi' } });
 
     try {
-      const result = await findSimilarItems(inputPayload);
+      const result: ApiResponse = await callWardrobeApi(
+        apiInput.howMany,
+        apiInput.gender,
+        apiInput.country,
+        apiInput.wardrobe,
+        apiInput.minPrice,
+        apiInput.maxPrice
+      );
+      addLog({ event: 'response', flow: 'callExternalApi', data: result });
 
-      if (result.logs) {
-        addLog(result.logs);
+      const newSimilarItems: SimilarItem[] = [];
+      if (result.imageURLs && result.imageURLs.length > 0) {
+        for (let i = 0; i < result.imageURLs.length; i++) {
+            const similarItem: SimilarItem = {
+                productName: result.productNames?.[i] || 'TBD',
+                merchantName: result.merchantNames?.[i] || 'TBD',
+                itemPrice: result.itemPrices?.[i] || 'TBD',
+                vendorLink: result.URLs[i],
+                imageURL: result.imageURLs[i] || 'https://placehold.co/400x500.png',
+            };
+            newSimilarItems.push(similarItem);
+        }
       }
 
-      const newSimilarItems = result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }));
+      const clothingItems = [...new Set(validWardrobeItems.map(i => i.category))];
+      const primaryCategory = validWardrobeItems[0]?.category;
 
       const currentAnalysis: AnalysisState = {
-        clothingItems: result.clothingItems || [],
+        clothingItems: clothingItems,
         genderDepartment: determinedGender,
         similarItems: newSimilarItems,
         approximatedBrands: [],
@@ -380,12 +399,12 @@ export default function StyleSeerPage() {
       addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: newSimilarItems } });
       setError(null);
 
-      if (newSimilarItems.length > 0 && result.category) {
+      if (newSimilarItems.length > 0 && primaryCategory) {
         setIsLoadingComplementaryItems(true);
         setCurrentLoadingMessage("Searching for complementary items...");
         const compInput = {
             isWardrobeFlow: true,
-            category: result.category,
+            category: primaryCategory,
             gender: determinedGender,
             country: country,
             numItemsPerCategory: numSimilarItems,
@@ -409,7 +428,7 @@ export default function StyleSeerPage() {
         setIsLoadingComplementaryItems(false);
       }
     } catch (e: any) {
-      addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
+      addLog({ event: 'error', flow: 'callExternalApi', data: e.message });
       console.error(`Error fetching wardrobe recommendations:`, e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
       setError(`Could not fetch recommendations: ${errorMessage}`);

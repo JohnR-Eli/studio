@@ -28,16 +28,16 @@ export async function callWardrobeApi(
 ): Promise<ApiResponse> {
   const endpoint = 'https://idx-fitted-affiliategit-93924427-92591340310.us-east1.run.app/process/wardrobe';
   const queryParams = new URLSearchParams({
-    HowMany: howMany.toString(),
+    howMany: howMany.toString(),
     gender,
     country,
   });
 
   if (minPrice !== undefined) {
-    queryParams.append('minPrice', minPrice.toFixed(2));
+    queryParams.append('minPrice', minPrice.toString());
   }
   if (maxPrice !== undefined) {
-    queryParams.append('maxPrice', maxPrice.toFixed(2));
+    queryParams.append('maxPrice', maxPrice.toString());
   }
 
   const url = `${endpoint}?${queryParams}`;
