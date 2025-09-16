@@ -28,7 +28,7 @@ export async function callWardrobeApi(
 ): Promise<ApiResponse> {
   const endpoint = 'https://idx-fitted-affiliategit-93924427-92591340310.us-east1.run.app/process/wardrobe';
   const queryParams = new URLSearchParams({
-    HowMany: howMany.toString(),
+    howMany: howMany.toString(),
     gender,
     country,
   });
