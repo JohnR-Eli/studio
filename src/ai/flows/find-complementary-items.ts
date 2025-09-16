@@ -24,16 +24,14 @@ const BaseComplementarySchema = z.object({
 });
 
 const ImageComplementarySchema = BaseComplementarySchema.extend({
-    isWardrobeFlow: z.literal(false).optional(),
     originalClothingCategories: z.array(z.string()).describe('The categories of the original clothing items (e.g., ["T-Shirt", "Outerwear"]).'),
 });
 
 const WardrobeComplementarySchema = BaseComplementarySchema.extend({
-    isWardrobeFlow: z.literal(true),
     category: z.string().describe('The primary category from the wardrobe recommendation.'),
 });
 
-const FindComplementaryItemsInputSchema = z.discriminatedUnion('isWardrobeFlow', [
+const FindComplementaryItemsInputSchema = z.union([
     ImageComplementarySchema,
     WardrobeComplementarySchema,
 ]);
@@ -110,12 +108,12 @@ export const findComplementaryItems = ai.defineFlow(
 
     const { gender, country = 'United States', numItemsPerCategory = 2, includeLingerie = false, minPrice, maxPrice } = input;
 
-    if (input.isWardrobeFlow) {
+    if ('category' in input && input.category) {
         const categoryResponse = await determineComplementaryCategorySingularPrompt({ category: input.category, gender });
         categoriesToFind = categoryResponse.output?.categoriesToFind || [];
         // Exclude original category
         categoriesToFind = categoriesToFind.filter(cat => cat !== input.category);
-    } else {
+    } else if ('originalClothingCategories' in input) {
         const categoryResponse = await determineCategoriesPrompt({ originalClothingCategories: input.originalClothingCategories, gender });
         categoriesToFind = categoryResponse.output?.categoriesToFind || [];
         // Exclude original categories

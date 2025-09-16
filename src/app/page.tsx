@@ -349,7 +349,6 @@ export default function StyleSeerPage() {
     const determinedGender = genderDepartment === 'Auto' ? 'Unisex' : genderDepartment;
 
     const inputPayload = {
-      isWardrobeFlow: true,
       wardrobe: validWardrobeItems,
       country,
       numSimilarItems,
@@ -384,7 +383,6 @@ export default function StyleSeerPage() {
         setIsLoadingComplementaryItems(true);
         setCurrentLoadingMessage("Searching for complementary items...");
         const compInput = {
-            isWardrobeFlow: true,
             category: result.category,
             gender: determinedGender,
             country: country,

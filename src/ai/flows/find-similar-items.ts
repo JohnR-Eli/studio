@@ -32,7 +32,6 @@ const BaseSchema = z.object({
 });
 
 const ImageFlowSchema = BaseSchema.extend({
-    isWardrobeFlow: z.literal(false).optional(),
     photoDataUri: z.string().describe("The original image of the clothing item, as a data URI."),
     clothingItem: z.string().describe('The type or category of clothing item.'),
     targetBrandNames: z.array(z.string()).describe('The specific brand names to primarily find similar items from.'),
@@ -40,11 +39,10 @@ const ImageFlowSchema = BaseSchema.extend({
 });
 
 const WardrobeFlowSchema = BaseSchema.extend({
-    isWardrobeFlow: z.literal(true),
     wardrobe: z.array(WardrobeItemSchema).describe("An array of wardrobe items, each with a category and brand."),
 });
 
-const FindSimilarItemsInputSchema = z.discriminatedUnion("isWardrobeFlow", [
+const FindSimilarItemsInputSchema = z.union([
   ImageFlowSchema,
   WardrobeFlowSchema,
 ]);
@@ -83,7 +81,7 @@ export const findSimilarItems = ai.defineFlow(
     const country = input.country || 'United States';
     const gender = input.gender || 'Unisex';
 
-    if (input.isWardrobeFlow) {
+    if ('wardrobe' in input && input.wardrobe) {
         const apiInput = {
             howMany: input.numSimilarItems || 5,
             gender,
@@ -129,7 +127,7 @@ export const findSimilarItems = ai.defineFlow(
             return { similarItems: [], logs };
         }
 
-    } else {
+    } else if ('photoDataUri' in input) {
         // This is the original image-based flow
         for (const brand of input.targetBrandNames) {
             let currentCategory = input.userProvidedCategory || input.clothingItem;
