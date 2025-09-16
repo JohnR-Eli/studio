@@ -14,15 +14,29 @@ import { callExternalApi } from './call-external-api';
 import { LogEntry } from '@/app/page';
 
 
-const FindComplementaryItemsInputSchema = z.object({
-  originalClothingCategories: z.array(z.string()).describe('The categories of the original clothing items (e.g., ["T-Shirt", "Outerwear"]).'),
-  gender: z.enum(["Male", "Female", "Unisex"]).describe("The gender department for the recommendations."),
-  country: z.string().optional().describe('The country for sourcing items.'),
-  numItemsPerCategory: z.number().optional().default(2).describe('Number of items to find for each complementary category.'),
-  includeLingerie: z.boolean().optional().describe("Whether to include lingerie brands. Only considered when gender is 'Female'."),
-  minPrice: z.number().optional().describe('The minimum price for the items.'),
-  maxPrice: z.number().optional().describe('The maximum price for the items.'),
+const BaseComplementarySchema = z.object({
+    gender: z.enum(["Male", "Female", "Unisex"]).describe("The gender department for the recommendations."),
+    country: z.string().optional().describe('The country for sourcing items.'),
+    numItemsPerCategory: z.number().optional().default(2).describe('Number of items to find for each complementary category.'),
+    includeLingerie: z.boolean().optional().describe("Whether to include lingerie brands. Only considered when gender is 'Female'."),
+    minPrice: z.number().optional().describe('The minimum price for the items.'),
+    maxPrice: z.number().optional().describe('The maximum price for the items.'),
 });
+
+const ImageComplementarySchema = BaseComplementarySchema.extend({
+    isWardrobeFlow: z.literal(false).optional(),
+    originalClothingCategories: z.array(z.string()).describe('The categories of the original clothing items (e.g., ["T-Shirt", "Outerwear"]).'),
+});
+
+const WardrobeComplementarySchema = BaseComplementarySchema.extend({
+    isWardrobeFlow: z.literal(true),
+    category: z.string().describe('The primary category from the wardrobe recommendation.'),
+});
+
+const FindComplementaryItemsInputSchema = z.discriminatedUnion('isWardrobeFlow', [
+    ImageComplementarySchema,
+    WardrobeComplementarySchema,
+]);
 export type FindComplementaryItemsInput = z.infer<typeof FindComplementaryItemsInputSchema>;
 
 const ComplementaryItemSchema = z.object({
@@ -74,7 +88,17 @@ const determineCategoriesPrompt = ai.definePrompt(
     },
 );
 
+const determineComplementaryCategorySingularPrompt = ai.definePrompt(
+    {
+        name: 'determineComplementaryCategorySingular',
+        input: { schema: z.object({ category: z.string(), gender: z.enum(["Male", "Female", "Unisex"]) }) },
+        output: { schema: z.object({ categoriesToFind: z.array(z.string()) }) },
+        prompt: `Based on the original clothing category '{{category}}' and gender '{{gender}}', decide which 1-3 categories from the following list would best complete the look: ${allClothingCategories.join(', ')}. Do not select a category that is too similar to the original.`,
+    },
+);
+
 export async function findComplementaryItems(input: FindComplementaryItemsInput): Promise<FindComplementaryItemsOutput> {
+  // @ts-ignore
   return findComplementaryItemsFlow(input);
 }
 
@@ -84,16 +108,25 @@ const findComplementaryItemsFlow = ai.defineFlow(
     inputSchema: FindComplementaryItemsInputSchema,
     outputSchema: FindComplementaryItemsOutputSchema,
   },
-  async ({ originalClothingCategories, gender, country = 'United States', numItemsPerCategory = 2, includeLingerie = false, minPrice, maxPrice }): Promise<FindComplementaryItemsOutput> => {
+  async (input): Promise<FindComplementaryItemsOutput> => {
     const complementaryItems: ComplementaryItem[] = [];
     const logs: Omit<LogEntry, 'id' | 'timestamp'>[] = [];
+    let categoriesToFind: string[] = [];
 
-    const categoryResponse = await determineCategoriesPrompt({ originalClothingCategories, gender });
-    let categoriesToFind = categoryResponse.output?.categoriesToFind || [];
+    const { gender, country = 'United States', numItemsPerCategory = 2, includeLingerie = false, minPrice, maxPrice } = input;
 
-    // Exclude original categories from the ones to find
-    if (originalClothingCategories && originalClothingCategories.length > 0) {
-      categoriesToFind = categoriesToFind.filter(cat => !originalClothingCategories.includes(cat));
+    if (input.isWardrobeFlow) {
+        const categoryResponse = await determineComplementaryCategorySingularPrompt({ category: input.category, gender });
+        categoriesToFind = categoryResponse.output?.categoriesToFind || [];
+        // Exclude original category
+        categoriesToFind = categoriesToFind.filter(cat => cat !== input.category);
+    } else {
+        const categoryResponse = await determineCategoriesPrompt({ originalClothingCategories: input.originalClothingCategories, gender });
+        categoriesToFind = categoryResponse.output?.categoriesToFind || [];
+        // Exclude original categories
+        if (input.originalClothingCategories && input.originalClothingCategories.length > 0) {
+            categoriesToFind = categoriesToFind.filter(cat => !input.originalClothingCategories.includes(cat));
+        }
     }
 
     const numToFetch = numItemsPerCategory || 2;

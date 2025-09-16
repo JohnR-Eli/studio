@@ -331,6 +331,93 @@ export default function StyleSeerPage() {
     }
   }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
 
+  const handleWardrobeRecommendation = useCallback(async () => {
+    const validWardrobeItems = wardrobe.filter(item => item.category.trim() !== '' && item.brand.trim() !== '');
+    if (validWardrobeItems.length === 0) {
+      setError("Wardrobe is empty. Please add items to get a recommendation.");
+      return;
+    }
+
+    setAnalysis(null);
+    setError(null);
+    setIsLoading(true);
+    setIsLoadingSimilarItems(true);
+    setIsLoadingComplementaryItems(false);
+    setCurrentLoadingMessage("Getting recommendations for your wardrobe...");
+    setLogs([]);
+
+    const determinedGender = genderDepartment === 'Auto' ? 'Unisex' : genderDepartment;
+
+    const inputPayload = {
+      isWardrobeFlow: true,
+      wardrobe: validWardrobeItems,
+      country,
+      numSimilarItems,
+      minPrice,
+      maxPrice,
+      gender: determinedGender,
+    };
+    addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
+
+    try {
+      // @ts-expect-error - We will update the function signature in the next step
+      const result = await findSimilarItems(inputPayload);
+
+      if (result.logs) {
+        addLog(result.logs);
+      }
+
+      const newSimilarItems = result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }));
+
+      const currentAnalysis: AnalysisState = {
+        clothingItems: result.clothingItems || [],
+        genderDepartment: determinedGender,
+        similarItems: newSimilarItems,
+      };
+      setAnalysis(currentAnalysis);
+
+      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: newSimilarItems } });
+      setError(null);
+
+      if (newSimilarItems.length > 0) {
+        setIsLoadingComplementaryItems(true);
+        setCurrentLoadingMessage("Searching for complementary items...");
+        const compInput = {
+            isWardrobeFlow: true,
+            category: result.category, // This will come from the modified findSimilarItems response
+            gender: determinedGender,
+            country: country,
+            numItemsPerCategory: numSimilarItems,
+            minPrice: minPrice,
+            maxPrice: maxPrice,
+            includeLingerie: includeLingerie && genderDepartment === 'Female',
+        };
+        addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
+        // @ts-expect-error - We will update the function signature in the next step
+        findComplementaryItems(compInput).then(compResult => {
+            if (compResult.logs) {
+              addLog(compResult.logs);
+            }
+            addLog({ event: 'response', flow: 'findComplementaryItems', data: { complementaryItems: compResult.complementaryItems } });
+            setAnalysis(prev => prev ? ({ ...prev, complementaryItems: compResult.complementaryItems }) : null);
+        }).catch(e => {
+            addLog({ event: 'error', flow: 'findComplementaryItems', data: e.message });
+        }).finally(() => {
+            setIsLoadingComplementaryItems(false);
+        });
+      }
+    } catch (e: any) {
+      addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
+      console.error(`Error fetching wardrobe recommendations:`, e);
+      const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
+      setError(`Could not fetch recommendations: ${errorMessage}`);
+      setAnalysis(null);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingSimilarItems(false);
+    }
+  }, [wardrobe, country, numSimilarItems, addLog, minPrice, maxPrice, includeLingerie, genderDepartment]);
+
   useEffect(() => {
     try {
       const storedPreference = localStorage.getItem(HISTORY_PREFERENCE_KEY);
@@ -490,7 +577,14 @@ export default function StyleSeerPage() {
                             {uploadMode === 'single' ? (
                                 <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
                             ) : (
-                                <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
+                                <>
+                                    <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
+                                    <div className="mt-6">
+                                        <Button onClick={handleWardrobeRecommendation} size="lg">
+                                            Get Recommendations
+                                        </Button>
+                                    </div>
+                                </>
                             )}
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">Country of Residence</Label>
