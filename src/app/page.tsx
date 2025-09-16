@@ -356,11 +356,10 @@ export default function StyleSeerPage() {
       minPrice,
       maxPrice,
       gender: determinedGender,
-    };
+    } as const;
     addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
 
     try {
-      // @ts-expect-error - We will update the function signature in the next step
       const result = await findSimilarItems(inputPayload);
 
       if (result.logs) {
@@ -373,27 +372,28 @@ export default function StyleSeerPage() {
         clothingItems: result.clothingItems || [],
         genderDepartment: determinedGender,
         similarItems: newSimilarItems,
+        approximatedBrands: [],
+        alternativeBrands: [],
       };
       setAnalysis(currentAnalysis);
 
       addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: newSimilarItems } });
       setError(null);
 
-      if (newSimilarItems.length > 0) {
+      if (newSimilarItems.length > 0 && result.category) {
         setIsLoadingComplementaryItems(true);
         setCurrentLoadingMessage("Searching for complementary items...");
         const compInput = {
             isWardrobeFlow: true,
-            category: result.category, // This will come from the modified findSimilarItems response
+            category: result.category,
             gender: determinedGender,
             country: country,
             numItemsPerCategory: numSimilarItems,
             minPrice: minPrice,
             maxPrice: maxPrice,
             includeLingerie: includeLingerie && genderDepartment === 'Female',
-        };
+        } as const;
         addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
-        // @ts-expect-error - We will update the function signature in the next step
         findComplementaryItems(compInput).then(compResult => {
             if (compResult.logs) {
               addLog(compResult.logs);
@@ -405,6 +405,8 @@ export default function StyleSeerPage() {
         }).finally(() => {
             setIsLoadingComplementaryItems(false);
         });
+      } else {
+        setIsLoadingComplementaryItems(false);
       }
     } catch (e: any) {
       addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });

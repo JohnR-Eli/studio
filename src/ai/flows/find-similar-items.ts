@@ -70,14 +70,9 @@ const FindSimilarItemsOutputSchema = z.object({
 });
 export type FindSimilarItemsOutput = z.infer<typeof FindSimilarItemsOutputSchema>;
 
-export async function findSimilarItems(input: FindSimilarItemsInput): Promise<FindSimilarItemsOutput> {
-  // @ts-ignore - The input will be validated by the flow's inputSchema
-  return findSimilarItemsFlow(input);
-}
-
-const findSimilarItemsFlow = ai.defineFlow(
+export const findSimilarItems = ai.defineFlow(
   {
-    name: 'findSimilarItemsFlow',
+    name: 'findSimilarItems',
     inputSchema: FindSimilarItemsInputSchema,
     outputSchema: FindSimilarItemsOutputSchema,
   },

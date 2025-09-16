@@ -97,14 +97,9 @@ const determineComplementaryCategorySingularPrompt = ai.definePrompt(
     },
 );
 
-export async function findComplementaryItems(input: FindComplementaryItemsInput): Promise<FindComplementaryItemsOutput> {
-  // @ts-ignore
-  return findComplementaryItemsFlow(input);
-}
-
-const findComplementaryItemsFlow = ai.defineFlow(
+export const findComplementaryItems = ai.defineFlow(
   {
-    name: 'findComplementaryItemsFlow',
+    name: 'findComplementaryItems',
     inputSchema: FindComplementaryItemsInputSchema,
     outputSchema: FindComplementaryItemsOutputSchema,
   },
