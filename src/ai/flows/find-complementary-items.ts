@@ -126,7 +126,7 @@ export const findComplementaryItems = ai.defineFlow(
         }
     } catch (error) {
         console.error('Error determining complementary categories:', error);
-        logs.push({ event: 'error', flow: 'determineComplementaryCategories', data: { error: error instanceof Error ? error.message : String(error) } });
+        logs.push({ event: 'error', flow: 'findComplementaryItems', data: { step: 'determineComplementaryCategories', error: error instanceof Error ? error.message : String(error) } });
         return { complementaryItems, logs };
     }
 
