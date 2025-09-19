@@ -26,7 +26,7 @@ export async function callWardrobeApi(
   minPrice?: number,
   maxPrice?: number
 ): Promise<ApiResponse> {
-  const endpoint = 'https://idx-fitted-affiliategit-93924427-92591340310.us-east1.run.app/process/wardrobe';
+  const endpoint = 'https://fitted-affiliate-service-821707295554.us-east1.run.app/process/wardrobe';
   const queryParams = new URLSearchParams({
     howMany: howMany.toString(),
     gender,
@@ -71,7 +71,7 @@ export async function callExternalApi(
   minPrice?: number,
   maxPrice?: number
 ): Promise<ApiResponse> {
-  const endpoint = 'https://idx-fitted-affiliategit-93924427-92591340310.us-east1.run.app/process';
+  const endpoint = 'https://fitted-affiliate-service-821707295554.us-east1.run.app/process';
   const queryParams = new URLSearchParams({
     howMany: howMany.toString(),
     category,
