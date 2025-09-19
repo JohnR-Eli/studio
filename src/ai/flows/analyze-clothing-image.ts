@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -18,16 +19,27 @@ const AnalyzeClothingImageInputSchema = z.object({
       "A photo of clothing, as a data URI. It must include a MIME type (e.g., 'image/jpeg', 'image/png') and use Base64 encoding for the image data. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
   genderDepartment: z.enum(["Male", "Female", "Unisex", "Auto"]).optional().describe("The user-specified gender department for the clothing items. If 'Auto', the AI will determine the gender."),
+  includeLingerie: z.boolean().optional().describe("Whether to include lingerie brands in the recommendations. This is only considered when genderDepartment is 'Female'."),
+  country: z.string().optional().describe("The user's country of residence. Use this to select brands that are relevant to the user's region."),
 });
 export type AnalyzeClothingImageInput = z.infer<typeof AnalyzeClothingImageInputSchema>;
 
 const preferredBrandsForStyleApproximation = [
-  "Unique Vintage", "PUMA", "Osprey", "NBA", "Kappa", "Fanatics", "Nisolo", 
-  "Backcountry", "Allbirds", "FEATURE", "MLB", "PGA", "NHL", "Flag & Anthem", 
-  "MLS", "NFL", "GOLF le Fleur", "Taylor Stitch", "The North Face", "NIKE", 
-  "LUISAVIAROMA", "FootJoy", "The Luxury Closet", "Savage X Fenty", "Bali Bras", 
-  "Belstaff", "Belstaff UK", "Culture Kings US", "D1 Milano", "Double F", 
-  "onehanesplace.com", "Jansport", "Kut from the Kloth", "Maidenform", "UGG US"
+    "Allbirds", "Allbirds AU", "Allbirds NZ", "Backcountry", "Belstaff", "Belstaff (Europe)", "Belstaff UK",
+    "Bloomingdale", "Bloomingdale AU", "Bloomingdale UK", "Champion.com (Hanesbrands Inc.)", "Culture Kings",
+    "Culture Kings US", "D1 Milano", "Dynamite Clothing", "Fanatics", "Fanatics UK", "Fabletics Europe",
+    "Fabletics eur", "Fabletics uk", "FEATURE", "Flag & Anthem", "FootJoy", "GOLF le Fleur", "Garage Clothing",
+    "JanSport", "Kappa", "Kut from the Kloth", "LUISAVIAROMA", "Luxury Closet", "Luxury Closet eur",
+    "Luxury Closet uk", "MLB", "MLB AU", "MLB CA", "MLB UK", "MLS", "MLS CA", "MYTHERESA", "MYTHERESA au",
+    "MYTHERESA ca", "MYTHERESA eur", "MYTHERESA uk", "Mytheresa", "NBA", "NBA AU", "NBA CA", "NBA UK",
+    "NFL", "NFL CA", "NFL UK", "NHL", "NHL CA", "NHL UK", "NIKE", "Nisolo", "North Face UK", "North Face uk",
+    "Osprey", "PGA", "PUMA", "PUMA India", "PUMA Thailand", "Poshmark", "SKECHERS eur", "Skechers",
+    "Street Machine Skate", "Taylor Stitch", "The Double F", "UGG", "UGG US", "Unique Vintage", "WNBA"
+];
+
+const lingerieBrands = [
+    "Savage x Fenty", "The Tight Spot", "The Tight Spot ca", "The Tight Spot eur", "The Tight Spot uk", "The Tight Spot au",
+    "Maidenform", "Bali Bras", "onehanesplace"
 ];
 
 const clothingCategories = [
@@ -68,6 +80,10 @@ const analyzeClothingImageFlow = ai.defineFlow(
         ? input.genderDepartment 
         : null;
 
+      const brandList = (input.genderDepartment === 'Female' && input.includeLingerie) 
+        ? [...preferredBrandsForStyleApproximation, ...lingerieBrands]
+        : preferredBrandsForStyleApproximation;
+
       const promptInput = { ...input };
       let analysisPrompt: any;
 
@@ -79,11 +95,12 @@ const analyzeClothingImageFlow = ai.defineFlow(
           input: { schema: AnalyzeClothingImageInputSchema },
           output: { schema: z.object(outputFieldsWithoutGender) },
           prompt: `You are an AI fashion assistant. Analyze the clothing in the image. You have been given the gender department by the user, so you do not need to determine it.
+          The user's country is {{country}}. When suggesting brands, prioritize those that are most relevant to this country (e.g., brands with a 'UK' suffix for 'United Kingdom', or brands known to be popular in that region).
           - 'clothingItems': List the clothing items from this list: ${clothingCategories.join(', ')}.
           - Brand Identification: Identify the brand if a logo is visible.
           - Brand Approximations: If no brand is clear, suggest up to 5 stylistic matches from the Preferred Brand List.
           - Alternative Brands: Suggest up to 5 similar style brands from the Preferred Brand List.
-          Preferred Brand List: ${preferredBrandsForStyleApproximation.join(', ')}
+          Preferred Brand List: ${brandList.join(', ')}
           Image: {{media url=photoDataUri}}`,
         });
       } else {
@@ -93,12 +110,13 @@ const analyzeClothingImageFlow = ai.defineFlow(
           input: { schema: AnalyzeClothingImageInputSchema },
           output: { schema: AnalyzeClothingImageOutputSchema },
           prompt: `You are an AI fashion assistant. Analyze the clothing in the image.
+          The user's country is {{country}}. When suggesting brands, prioritize those that are most relevant to this country (e.g., brands with a 'UK' suffix for 'United Kingdom', or brands known to be popular in that region).
           - 'clothingItems': List the clothing items from this list: ${clothingCategories.join(', ')}.
           - 'genderDepartment': Determine if the item is Male, Female, or Unisex. Prefer 'Male' or 'Female' over 'Unisex'.
           - Brand Identification: Identify the brand if a logo is visible.
           - Brand Approximations: If no brand is clear, suggest up to 5 stylistic matches from the Preferred Brand List.
           - Alternative Brands: Suggest up to 5 similar style brands from the Preferred Brand List.
-          Preferred Brand List: ${preferredBrandsForStyleApproximation.join(', ')}
+          Preferred Brand List: ${brandList.join(', ')}
           Image: {{media url=photoDataUri}}`,
         });
       }

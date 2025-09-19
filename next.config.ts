@@ -3,12 +3,15 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // typescript: {
-  //   ignoreBuildErrors: true, // Removing this to enable stricter checks
-  // },
-  // eslint: {
-  //   ignoreDuringBuilds: true, // Removing this to enable stricter checks
-  // },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '5mb',
+      // Increase timeout to 90 seconds to handle multiple API calls
+      // @ts-ignore
+      executionTimeout: 90,
+    },
+    allowedDevOrigins: ["https://3000-firebase-studio-1748136055988.cluster-sumfw3zmzzhzkx4mpvz3ogth4y.cloudworkstations.dev"]
+  },
   images: {
     remotePatterns: [
       {

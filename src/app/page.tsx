@@ -4,6 +4,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/style-seer/ImageUpload';
+import WardrobeTable, { WardrobeItem } from '@/components/style-seer/WardrobeTable';
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import SearchHistory from '@/components/style-seer/SearchHistory';
@@ -18,11 +19,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import DebugPanel from '@/components/style-seer/DebugPanel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import BackendLogs from '@/components/style-seer/BackendLogs';
+import { getCurrencyByCountry } from '@/utils/currency';
 
 
 const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisResults'), {
@@ -55,8 +58,8 @@ export type LogEntry = {
 };
 
 const MAX_HISTORY_ITEMS = 10;
-const LOCAL_STORAGE_KEY = 'fittedToolSearchHistory';
-const HISTORY_PREFERENCE_KEY = 'fittedToolSaveHistoryPreference';
+const LOCAL_STORAGE_KEY = 'styleSeerSearchHistory';
+const HISTORY_PREFERENCE_KEY = 'styleSeerSaveHistoryPreference';
 
 const topCountries = [
     "United States",
@@ -71,6 +74,30 @@ const topCountries = [
     "Philippines"
 ];
 
+const preferredBrands = [
+    "Allbirds", "Allbirds AU", "Allbirds NZ", "Backcountry", "Belstaff", "Belstaff (Europe)", "Belstaff UK",
+    "Bloomingdale", "Bloomingdale AU", "Bloomingdale UK", "Champion.com (Hanesbrands Inc.)", "Culture Kings",
+    "Culture Kings US", "D1 Milano", "Dynamite Clothing", "Fanatics", "Fanatics UK", "Fabletics Europe",
+    "Fabletics eur", "Fabletics uk", "FEATURE", "Flag & Anthem", "FootJoy", "GOLF le Fleur", "Garage Clothing",
+    "JanSport", "Kappa", "Kut from the Kloth", "LUISAVIAROMA", "Luxury Closet", "Luxury Closet eur",
+    "Luxury Closet uk", "MLB", "MLB AU", "MLB CA", "MLB UK", "MLS", "MLS CA", "MYTHERESA", "MYTHERESA au",
+    "MYTHERESA ca", "MYTHERESA eur", "MYTHERESA uk", "Mytheresa", "NBA", "NBA AU", "NBA CA", "NBA UK",
+    "NFL", "NFL CA", "NFL UK", "NHL", "NHL CA", "NHL UK", "NIKE", "Nisolo", "North Face UK", "North Face uk",
+    "Osprey", "PGA", "PUMA", "PUMA India", "PUMA Thailand", "Poshmark", "SKECHERS eur", "Skechers",
+    "Street Machine Skate", "Taylor Stitch", "The Double F", "UGG", "UGG US", "Unique Vintage", "WNBA"
+];
+  
+const lingerieBrands = [
+    "Savage x Fenty", "The Tight Spot", "The Tight Spot ca", "The Tight Spot eur", "The Tight Spot uk", "The Tight Spot au",
+    "Maidenform", "Bali Bras", "onehanesplace"
+];
+
+const clothingCategories = [
+    "Tops", "Bottoms", "Footwear", "Accessories", "Activewear", "Outerwear", 
+    "Sweaters", "T-Shirts", "Jeans", "Pants", "Shoes", "Hats"
+];
+
+
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
@@ -82,12 +109,21 @@ export default function StyleSeerPage() {
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
   const [country, setCountry] = useState('United States');
+  const [currency, setCurrency] = useState('USD');
   const [genderDepartment, setGenderDepartment] = useState<'Male' | 'Female' | 'Unisex' | 'Auto'>('Auto');
+  const [selectedBrand, setSelectedBrand] = useState('Auto');
   const [numSimilarItems, setNumSimilarItems] = useState(5);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [minPrice, setMinPrice] = useState(1);
   const [maxPrice, setMaxPrice] = useState(5000);
   const [activeTab, setActiveTab] = useState("recommendations");
+  const [includeLingerie, setIncludeLingerie] = useState(false);
+  const [availableBrands, setAvailableBrands] = useState(preferredBrands);
+  const [selectedCategory, setSelectedCategory] = useState('Auto');
+  const [uploadMode, setUploadMode] = useState<'single' | 'wardrobe'>('single');
+  const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([{ category: '', brand: '' }]);
+
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
     const logsToAdd = Array.isArray(log) ? log : [log];
@@ -99,18 +135,20 @@ export default function StyleSeerPage() {
     setLogs(prev => [...prev, ...newLogs]);
   }, []);
 
-  const handleBrandSelect = useCallback(async (brandName: string, category: string, gender: 'Male' | 'Female' | 'Unisex', photoDataUri: string, clothingItems: string[]) => {
+  const handleBrandSelect = useCallback(async (brands: string[], category: string, gender: 'Male' | 'Female' | 'Unisex', photoDataUri: string, clothingItems: string[]) => {
     setIsLoadingSimilarItems(true);
-    setCurrentLoadingMessage(`Searching for ${category} from ${brandName}...`);
+    setCurrentLoadingMessage(`Searching for items from recommended brands...`);
 
     const inputPayload = {
       photoDataUri: photoDataUri.substring(0, 50) + '...',
       clothingItem: category,
-      targetBrandName: brandName,
+      targetBrandNames: brands,
       country,
       numSimilarItems,
+      minPrice,
       maxPrice,
       gender,
+      userProvidedCategory: selectedCategory !== 'Auto' ? selectedCategory : undefined,
     };
     addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
 
@@ -118,11 +156,13 @@ export default function StyleSeerPage() {
       const result = await findSimilarItems({
         photoDataUri,
         clothingItem: category,
-        targetBrandName: brandName,
+        targetBrandNames: brands,
         country,
         numSimilarItems,
+        minPrice,
         maxPrice,
         gender,
+        userProvidedCategory: selectedCategory !== 'Auto' ? selectedCategory : undefined,
       });
 
       if (result.logs) {
@@ -142,11 +182,16 @@ export default function StyleSeerPage() {
 
       if (newSimilarItems.length > 0) {
         setIsLoadingComplementaryItems(true);
+        setCurrentLoadingMessage("Searching for complementary items...");
         const compInput = {
             originalClothingCategories: clothingItems,
             gender: gender,
             country: country,
             numItemsPerCategory: numSimilarItems,
+            minPrice: minPrice,
+            maxPrice: maxPrice,
+            // Only include lingerie if the USER selected Female, not if the AI detected it.
+            includeLingerie: includeLingerie && genderDepartment === 'Female',
         };
         addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
         findComplementaryItems(compInput).then(compResult => {
@@ -164,9 +209,9 @@ export default function StyleSeerPage() {
 
     } catch (e: any) {
       addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
-      console.error(`Error fetching items for brand ${brandName}:`, e);
+      console.error(`Error fetching items for brands ${brands.join(', ')}:`, e);
       const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
-      setError(`Could not fetch items for ${brandName}: ${errorMessage}`);
+      setError(`Could not fetch items: ${errorMessage}`);
       setAnalysis(prevAnalysis => ({
         ...prevAnalysis!,
         similarItems: [],
@@ -175,27 +220,7 @@ export default function StyleSeerPage() {
       setIsLoadingSimilarItems(false);
       setCurrentLoadingMessage("Analysis complete.");
     }
-  }, [country, numSimilarItems, addLog, maxPrice]);
-
-  useEffect(() => {
-    try {
-      const storedPreference = localStorage.getItem(HISTORY_PREFERENCE_KEY);
-      const save = storedPreference === 'true';
-      setSaveHistoryPreference(save);
-
-      if (save) {
-        const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (storedHistory) {
-          const parsedHistory = JSON.parse(storedHistory);
-          if (Array.isArray(parsedHistory)) {
-            setSearchHistory(parsedHistory.map((item: any) => ({ ...item, imageUri: undefined })));
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load history from localStorage:", e);
-    }
-  }, []);
+  }, [country, numSimilarItems, addLog, minPrice, maxPrice, includeLingerie, genderDepartment, selectedCategory]);
 
   const handleImageUpload = useCallback(async (dataUri: string) => {
     if (!dataUri) {
@@ -221,11 +246,18 @@ export default function StyleSeerPage() {
     const inputPayload = { 
       photoDataUri: dataUri.substring(0, 50) + '...',
       genderDepartment,
+      includeLingerie: includeLingerie && genderDepartment === 'Female',
+      country,
     };
     addLog({ event: 'invoke', flow: 'analyzeClothingImage', data: inputPayload });
 
     try {
-      const clothingAnalysisResult = await analyzeClothingImage({ photoDataUri: dataUri, genderDepartment });
+      const clothingAnalysisResult = await analyzeClothingImage({ 
+        photoDataUri: dataUri, 
+        genderDepartment,
+        includeLingerie: includeLingerie && genderDepartment === 'Female',
+        country,
+      });
       addLog({ event: 'response', flow: 'analyzeClothingImage', data: clothingAnalysisResult || "No result" });
 
       if (clothingAnalysisResult) {
@@ -239,13 +271,26 @@ export default function StyleSeerPage() {
         };
         setAnalysis(currentAnalysis);
         
-        const brandToFetch = (clothingAnalysisResult.identifiedBrand && clothingAnalysisResult.identifiedBrand !== "null") 
-            ? clothingAnalysisResult.identifiedBrand 
-            : (clothingAnalysisResult.approximatedBrands && clothingAnalysisResult.approximatedBrands[0]);
+        let brandsToFetch: string[] = [];
+        if (selectedBrand !== 'Auto') {
+            brandsToFetch = [selectedBrand];
+        } else {
+            const identified = (clothingAnalysisResult.identifiedBrand && clothingAnalysisResult.identifiedBrand !== "null") ? [clothingAnalysisResult.identifiedBrand] : [];
+            const approximated = clothingAnalysisResult.approximatedBrands || [];
+            const alternative = clothingAnalysisResult.alternativeBrands || [];
+            brandsToFetch = [...new Set([...identified, ...approximated, ...alternative])];
+        }
 
+        const categoryToUse = selectedCategory !== 'Auto'
+            ? selectedCategory
+            : (clothingAnalysisResult.clothingItems.length > 0 ? clothingAnalysisResult.clothingItems[0] : 'Tops');
 
-        if (brandToFetch && clothingAnalysisResult.clothingItems.length > 0) {
-            handleBrandSelect(brandToFetch, clothingAnalysisResult.clothingItems[0], determinedGender, dataUri, clothingAnalysisResult.clothingItems);
+        if (brandsToFetch.length > 0) {
+            handleBrandSelect(brandsToFetch, categoryToUse, determinedGender, dataUri, clothingAnalysisResult.clothingItems);
+        } else {
+            // If no brands were recommended, we need to stop the loading spinners.
+            setIsLoadingSimilarItems(false);
+            setIsLoadingComplementaryItems(false);
         }
 
         const { similarItems, complementaryItems, ...historyAnalysisData } = currentAnalysis;
@@ -284,7 +329,134 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, maxPrice]);
+  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
+
+  const handleWardrobeRecommendation = useCallback(async () => {
+    const validWardrobeItems = wardrobe.filter(item => item.category.trim() !== '' && item.brand.trim() !== '');
+    if (validWardrobeItems.length === 0) {
+      setError("Wardrobe is empty. Please add items to get a recommendation.");
+      return;
+    }
+
+    setAnalysis(null);
+    setError(null);
+    setIsLoading(true);
+    setIsLoadingSimilarItems(true);
+    setIsLoadingComplementaryItems(false);
+    setCurrentLoadingMessage("Getting recommendations for your wardrobe...");
+    setLogs([]);
+
+    const determinedGender = genderDepartment === 'Auto' ? 'Unisex' : genderDepartment;
+
+    const inputPayload = {
+      isWardrobeFlow: true,
+      wardrobe: validWardrobeItems,
+      country,
+      numSimilarItems,
+      minPrice,
+      maxPrice,
+      gender: determinedGender,
+    } as const;
+    addLog({ event: 'invoke', flow: 'findSimilarItems', data: inputPayload });
+
+    try {
+      const result = await findSimilarItems(inputPayload);
+
+      if (result.logs) {
+        addLog(result.logs);
+      }
+
+      const newSimilarItems = result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }));
+
+      const currentAnalysis: AnalysisState = {
+        clothingItems: result.clothingItems || [],
+        genderDepartment: determinedGender,
+        similarItems: newSimilarItems,
+        approximatedBrands: [],
+        alternativeBrands: [],
+      };
+      setAnalysis(currentAnalysis);
+
+      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: newSimilarItems } });
+      setError(null);
+
+      if (newSimilarItems.length > 0 && result.category) {
+        setIsLoadingComplementaryItems(true);
+        setCurrentLoadingMessage("Searching for complementary items...");
+        const compInput = {
+            isWardrobeFlow: true,
+            category: result.category,
+            gender: determinedGender,
+            country: country,
+            numItemsPerCategory: numSimilarItems,
+            minPrice: minPrice,
+            maxPrice: maxPrice,
+            includeLingerie: includeLingerie && genderDepartment === 'Female',
+        } as const;
+        addLog({ event: 'invoke', flow: 'findComplementaryItems', data: compInput });
+        findComplementaryItems(compInput).then(compResult => {
+            if (compResult.logs) {
+              addLog(compResult.logs);
+            }
+            addLog({ event: 'response', flow: 'findComplementaryItems', data: { complementaryItems: compResult.complementaryItems } });
+            setAnalysis(prev => prev ? ({ ...prev, complementaryItems: compResult.complementaryItems }) : null);
+        }).catch(e => {
+            addLog({ event: 'error', flow: 'findComplementaryItems', data: e.message });
+        }).finally(() => {
+            setIsLoadingComplementaryItems(false);
+        });
+      } else {
+        setIsLoadingComplementaryItems(false);
+      }
+    } catch (e: any) {
+      addLog({ event: 'error', flow: 'findSimilarItems', data: e.message });
+      console.error(`Error fetching wardrobe recommendations:`, e);
+      const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
+      setError(`Could not fetch recommendations: ${errorMessage}`);
+      setAnalysis(null);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingSimilarItems(false);
+    }
+  }, [wardrobe, country, numSimilarItems, addLog, minPrice, maxPrice, includeLingerie, genderDepartment]);
+
+  useEffect(() => {
+    try {
+      const storedPreference = localStorage.getItem(HISTORY_PREFERENCE_KEY);
+      const save = storedPreference === 'true';
+      setSaveHistoryPreference(save);
+
+      if (save) {
+        const storedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (storedHistory) {
+          const parsedHistory = JSON.parse(storedHistory);
+          if (Array.isArray(parsedHistory)) {
+            setSearchHistory(parsedHistory.map((item: any) => ({ ...item, imageUri: undefined })));
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load history from localStorage:", e);
+    }
+  }, []);
+  
+  useEffect(() => {
+    if (genderDepartment === 'Female' && includeLingerie) {
+      setAvailableBrands([...preferredBrands, ...lingerieBrands].sort());
+    } else {
+      setAvailableBrands(preferredBrands.sort());
+    }
+  }, [genderDepartment, includeLingerie]);
+
+  useEffect(() => {
+    if (genderDepartment !== 'Female') {
+      setIncludeLingerie(false);
+    }
+  }, [genderDepartment]);
+
+  useEffect(() => {
+    setCurrency(getCurrencyByCountry(country));
+  }, [country]);
 
 
   const handleReset = useCallback(() => {
@@ -327,10 +499,24 @@ export default function StyleSeerPage() {
       setNumSimilarItems(value);
     }
   };
+
+  const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    if (!isNaN(value)) {
+        const newMinPrice = Math.max(0.01, value);
+        setMinPrice(newMinPrice);
+        // Ensure maxPrice is not less than the new minPrice
+        if (maxPrice < newMinPrice) {
+            setMaxPrice(newMinPrice);
+        }
+    }
+  };
   
   const toggleDebugPanel = () => {
     setShowDebugPanel(prev => !prev);
   };
+  
+  const sliderMax = minPrice > 1 ? minPrice * 100 : 9000;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -381,7 +567,27 @@ export default function StyleSeerPage() {
                     <div className="container mx-auto px-4 py-8 md:py-12 flex-grow">
                         {!isLoading && !analysis && (
                         <div className="flex flex-col items-center">
-                            <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
+                            <div className="flex items-center space-x-2 mb-4">
+                                <Label htmlFor="upload-mode-switch">Single</Label>
+                                <Switch
+                                    id="upload-mode-switch"
+                                    checked={uploadMode === 'wardrobe'}
+                                    onCheckedChange={(checked) => setUploadMode(checked ? 'wardrobe' : 'single')}
+                                />
+                                <Label htmlFor="upload-mode-switch">Wardrobe</Label>
+                            </div>
+                            {uploadMode === 'single' ? (
+                                <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
+                            ) : (
+                                <>
+                                    <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
+                                    <div className="mt-6">
+                                        <Button onClick={handleWardrobeRecommendation} size="lg">
+                                            Get Recommendations
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">Country of Residence</Label>
                                 <Select value={country} onValueChange={setCountry}>
@@ -402,12 +608,44 @@ export default function StyleSeerPage() {
                                 </Select>
                             </div>
                             <div className="mt-4 w-full max-w-sm">
-                                <Label htmlFor="num-items-input" className="text-sm font-medium text-muted-foreground">Number of Similar Items</Label>
+                                <Label htmlFor="brand-select" className="text-sm font-medium text-muted-foreground">Preferred Brand</Label>
+                                <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+                                    <SelectTrigger id="brand-select" className="mt-1"><SelectValue placeholder="Select a brand" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Auto">Auto (Recommended)</SelectItem>
+                                        {availableBrands.map((brand) => (<SelectItem key={brand} value={brand}>{brand}</SelectItem>))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="mt-4 w-full max-w-sm">
+                                <Label htmlFor="category-select" className="text-sm font-medium text-muted-foreground">Clothing Category</Label>
+                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                    <SelectTrigger id="category-select" className="mt-1"><SelectValue placeholder="Select a category" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Auto">Auto (Detect from image)</SelectItem>
+                                        {clothingCategories.map((category) => (<SelectItem key={category} value={category}>{category}</SelectItem>))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {genderDepartment === 'Female' && (
+                                <div className="mt-4 w-full max-w-sm flex items-center space-x-2">
+                                    <Checkbox id="lingerie-checkbox" checked={includeLingerie} onCheckedChange={(checked) => setIncludeLingerie(!!checked)} />
+                                    <Label htmlFor="lingerie-checkbox" className="text-sm font-medium text-muted-foreground cursor-pointer">Include lingerie?</Label>
+                                </div>
+                            )}
+                            <div className="mt-4 w-full max-w-sm">
+                                <Label htmlFor="num-items-input" className="text-sm font-medium text-muted-foreground">Number of Items to Shop</Label>
                                 <Input id="num-items-input" type="number" value={numSimilarItems} onChange={handleNumItemsChange} placeholder="e.g., 5" className="mt-1"/>
                             </div>
                             <div className="mt-4 w-full max-w-sm">
-                                <Label htmlFor="price-range-slider" className="text-sm font-medium text-muted-foreground">Max Price: ${maxPrice}</Label>
-                                <Slider id="price-range-slider" min={1} max={5000} step={10} value={[maxPrice]} onValueChange={(value: number[]) => setMaxPrice(value[0])} className="mt-2"/>
+                                <Label className="text-sm font-medium text-muted-foreground">Price Range</Label>
+                                <div className="flex items-center gap-4 mt-1">
+                                    <Input id="min-price-input" type="number" step="0.01" value={minPrice} onChange={handleMinPriceChange} placeholder="Min $" className="w-24 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"/>
+                                    <div className="flex-1">
+                                      <div className="flex justify-between text-xs text-muted-foreground"><span>${minPrice.toFixed(2)}</span><span>${maxPrice.toFixed(2)}</span></div>
+                                      <Slider id="price-range-slider" min={minPrice} max={sliderMax} step={0.01} value={[maxPrice]} onValueChange={(value: number[]) => setMaxPrice(value[0])} className="mt-1"/>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         )}
@@ -436,6 +674,7 @@ export default function StyleSeerPage() {
                             complementaryItems={analysis.complementaryItems}
                             isLoadingSimilarItems={isLoadingSimilarItems}
                             isLoadingComplementaryItems={isLoadingComplementaryItems}
+                            currency={currency}
                             />
                             <div className="mt-10 text-center">
                             <Button onClick={handleReset} variant="outline" size="lg" className="shadow-sm hover:shadow-md transition-shadow">
@@ -447,7 +686,7 @@ export default function StyleSeerPage() {
                         )}
                     </div>
                     <footer className="text-center py-8 border-t border-border/60 mt-auto">
-                        <p className="text-sm text-muted-foreground">Fitted Tool &copy; {new Date().getFullYear()} - Your AI Fashion Assistant.</p>
+                        <p className="text-sm text-muted-foreground">StyleSeer &copy; {new Date().getFullYear()} - Your AI Fashion Assistant.</p>
                     </footer>
                 </main>
             </div>

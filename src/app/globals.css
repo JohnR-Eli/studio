@@ -52,13 +52,13 @@
 
   .dark {
     /* Dark theme colors - can be adjusted if dark mode is a focus */
-    --background: 240 10% 3.9%;
+    --background: 240 5% 12%;
     --foreground: 0 0% 98%;
 
-    --card: 240 10% 3.9%;
+    --card: 240 5% 15%;
     --card-foreground: 0 0% 98%;
 
-    --popover: 240 10% 3.9%;
+    --popover: 240 5% 12%;
     --popover-foreground: 0 0% 98%;
 
     --primary: 291 64% 72%; /* Lighter purple for dark mode */
@@ -76,8 +76,8 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
+    --border: 240 3.7% 20%;
+    --input: 240 3.7% 20%;
     --ring: 207 90% 58%;
 
     /* Sidebar dark theme colors */

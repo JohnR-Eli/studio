@@ -5,17 +5,20 @@ import { Shirt, ShoppingBag, AlertTriangle, Ticket, Users, Sparkles, Loader2, Se
 import NextImage from 'next/image';
 
 interface SimilarItem {
-    itemTitle: string;
-    itemDescription: string;
-    vendorLink: string;
+    productName: string;
+    merchantName: string;
+    itemPrice: string;
+    vendorLink:string;
     imageURL: string;
 }
 
 interface ComplementaryItem {
     category: string;
-    itemTitle: string;
+    productName: string;
     vendorLink: string;
     imageURL: string;
+    merchantName: string;
+    itemPrice: string;
 }
 
 interface AnalysisResultsProps {
@@ -30,6 +33,7 @@ interface AnalysisResultsProps {
   complementaryItems?: ComplementaryItem[];
   isLoadingSimilarItems: boolean;
   isLoadingComplementaryItems: boolean;
+  currency: string;
 }
 
 // Helper to group complementary items by category
@@ -57,6 +61,7 @@ export default function AnalysisResults({
   complementaryItems,
   isLoadingSimilarItems,
   isLoadingComplementaryItems,
+  currency,
 }: AnalysisResultsProps) {
   const hasAnyDataToShow = imagePreview || 
                            (clothingItems && clothingItems.length > 0) || 
@@ -101,7 +106,7 @@ export default function AnalysisResults({
             {imagePreview && !hasPrimaryAnalysisDetails && !hasAlternativeBrandsToExplore && ( 
                 <Card className="shadow-lg rounded-xl border-dashed border-amber-500 bg-amber-500/10">
                 <CardHeader><CardTitle className="flex items-center gap-2 text-xl text-amber-700"><AlertTriangle size={24} /> No Details Detected</CardTitle></CardHeader>
-                <CardContent><p className="text-md text-amber-600">We couldn't identify clothing details for this image.</p></CardContent>
+                <CardContent><p className="text-md text-amber-600">We couldn&apos;t identify clothing details for this image.</p></CardContent>
                 </Card>
             )}
 
@@ -148,16 +153,31 @@ export default function AnalysisResults({
         <div className="lg:col-span-full grid grid-cols-1 gap-6">
             {shouldShowSimilarItems && (
                 <Card className="shadow-lg rounded-xl transition-all hover:shadow-xl">
-                    <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><ShoppingBag size={24} className="text-primary" /> Style Suggestions</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><ShoppingBag size={24} className="text-primary" /> Shop the Look</CardTitle></CardHeader>
                     <CardContent>
                         {isLoadingSimilarItems ? (
                             <div className="flex items-center justify-center py-6"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-3 text-muted-foreground">Loading suggestions...</p></div>
                         ) : similarItems && similarItems.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                                 {similarItems.map((item, index) => (
-                                    <a href={item.vendorLink} key={index} target="_blank" rel="noopener noreferrer" className="block group">
-                                        <Card className="overflow-hidden"><div className="aspect-[4/5] relative w-full bg-muted/30"><NextImage src={item.imageURL} alt={item.itemTitle} fill className="object-cover transition-transform duration-300 group-hover:scale-105"/></div></Card>
-                                    </a>
+                                    <div key={index} className="group relative flex flex-col">
+                                        <div className="text-center mb-2">
+                                            <h4 className="text-sm font-semibold truncate" title={item.productName}>
+                                                {item.productName}
+                                            </h4>
+                                        </div>
+                                        <a href={item.vendorLink} target="_blank" rel="noopener noreferrer" title={item.productName} className="block">
+                                            <Card className="overflow-hidden rounded-lg shadow-md transition-all hover:shadow-xl">
+                                                <div className="aspect-[4/5] relative w-full bg-muted/30">
+                                                    <NextImage src={item.imageURL} alt={item.productName} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                </div>
+                                            </Card>
+                                        </a>
+                                        <div className="mt-2 text-center">
+                                            <p className="text-xs text-muted-foreground">{item.merchantName}</p>
+                                            <p className="text-sm font-bold">{item.itemPrice} {currency}</p>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         ) : null}
@@ -178,16 +198,24 @@ export default function AnalysisResults({
                                         <h3 className="text-lg font-semibold mb-3 text-center">{category}</h3>
                                         <div className="grid grid-cols-2 gap-4">
                                             {items.map((item, index) => (
-                                                <a href={item.vendorLink} key={`${category}-${index}`} target="_blank" rel="noopener noreferrer" className="block group">
-                                                <Card className="overflow-hidden">
-                                                    <div className="aspect-[4/5] relative w-full bg-muted/30">
-                                                    <NextImage src={item.imageURL} alt={item.itemTitle} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                <div key={`${category}-${index}`} className="group relative flex flex-col">
+                                                    <div className="text-center mb-2">
+                                                        <h4 className="text-sm font-semibold truncate" title={item.productName}>
+                                                            {item.productName}
+                                                        </h4>
                                                     </div>
-                                                    <div className='p-2 text-center'>
-                                                        <p className="text-xs font-semibold truncate">{item.itemTitle}</p>
+                                                    <a href={item.vendorLink} target="_blank" rel="noopener noreferrer" title={item.productName} className="block">
+                                                        <Card className="overflow-hidden rounded-lg shadow-md transition-all hover:shadow-xl">
+                                                            <div className="aspect-[4/5] relative w-full bg-muted/30">
+                                                                <NextImage src={item.imageURL} alt={item.productName} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                                                            </div>
+                                                        </Card>
+                                                    </a>
+                                                    <div className="mt-2 text-center">
+                                                        <p className="text-xs text-muted-foreground">{item.merchantName}</p>
+                                                        <p className="text-sm font-bold">{item.itemPrice} {currency}</p>
                                                     </div>
-                                                </Card>
-                                                </a>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
