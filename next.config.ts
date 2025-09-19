@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
       // @ts-ignore
       executionTimeout: 90,
     },
-    allowedDevOrigins: ["https://3000-firebase-studio-1748136055988.cluster-sumfw3zmzzhzkx4mpvz3ogth4y.cloudworkstations.dev"]
   },
+  allowedDevOrigins: ["https://3000-firebase-studio-1748136055988.cluster-sumfw3zmzzhzkx4mpvz3ogth4y.cloudworkstations.dev"],
   images: {
     remotePatterns: [
       {

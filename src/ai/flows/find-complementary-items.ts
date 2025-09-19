@@ -109,20 +109,27 @@ export const findComplementaryItems = ai.defineFlow(
     let categoriesToFind: string[] = [];
 
     const { gender, country = 'United States', numItemsPerCategory = 2, includeLingerie = false, minPrice, maxPrice } = input;
-
-    if (input.isWardrobeFlow) {
-        const categoryResponse = await determineComplementaryCategorySingularPrompt({ category: input.category, gender });
-        categoriesToFind = categoryResponse.output?.categoriesToFind || [];
-        // Exclude original category
-        categoriesToFind = categoriesToFind.filter(cat => cat !== input.category);
-    } else {
-        const categoryResponse = await determineCategoriesPrompt({ originalClothingCategories: input.originalClothingCategories, gender });
-        categoriesToFind = categoryResponse.output?.categoriesToFind || [];
-        // Exclude original categories
-        if (input.originalClothingCategories && input.originalClothingCategories.length > 0) {
-            categoriesToFind = categoriesToFind.filter(cat => !input.originalClothingCategories.includes(cat));
+    
+    try {
+        if (input.isWardrobeFlow) {
+            const categoryResponse = await determineComplementaryCategorySingularPrompt({ category: input.category, gender });
+            categoriesToFind = categoryResponse.output?.categoriesToFind || [];
+            // Exclude original category
+            categoriesToFind = categoriesToFind.filter(cat => cat !== input.category);
+        } else {
+            const categoryResponse = await determineCategoriesPrompt({ originalClothingCategories: input.originalClothingCategories, gender });
+            categoriesToFind = categoryResponse.output?.categoriesToFind || [];
+            // Exclude original categories
+            if (input.originalClothingCategories && input.originalClothingCategories.length > 0) {
+                categoriesToFind = categoriesToFind.filter(cat => !input.originalClothingCategories.includes(cat));
+            }
         }
+    } catch (error) {
+        console.error('Error determining complementary categories:', error);
+        logs.push({ event: 'error', flow: 'determineComplementaryCategories', data: { error: error instanceof Error ? error.message : String(error) } });
+        return { complementaryItems, logs };
     }
+
 
     const numToFetch = numItemsPerCategory || 2;
     
