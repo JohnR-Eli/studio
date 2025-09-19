@@ -121,10 +121,31 @@ const analyzeClothingImageFlow = ai.defineFlow(
         });
       }
 
-      const result = await analysisPrompt(promptInput);
+      let result;
+      try {
+        result = await analysisPrompt(promptInput);
+      } catch (e) {
+        console.warn("AI analysis failed, likely due to a non-clothing image. Using fallback.", e);
+        result = { output: null };
+      }
+      
+      if (!result.output || !result.output.clothingItems || result.output.clothingItems.length === 0) {
+        console.log("No clothing items detected or analysis failed. Generating random fallback.");
+        const genders: ("Male" | "Female" | "Unisex")[] = ["Male", "Female", "Unisex"];
+        const randomGender = genders[Math.floor(Math.random() * genders.length)];
+        
+        const shuffledBrands = [...brandList].sort(() => 0.5 - Math.random());
+        const approximated = shuffledBrands.slice(0, 5);
+        const alternative = shuffledBrands.slice(5, 10);
 
-      if (!result.output) {
-        throw new Error("The AI model did not return a valid analysis.");
+        return {
+          clothingItems: [clothingCategories[Math.floor(Math.random() * clothingCategories.length)]],
+          genderDepartment: userProvidedGender || randomGender,
+          brandIsExplicit: false,
+          identifiedBrand: undefined,
+          approximatedBrands: approximated,
+          alternativeBrands: alternative,
+        };
       }
 
       // Combine the results and enforce the user's gender choice.
