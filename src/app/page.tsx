@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/style-seer/ImageUpload';
 import WardrobeTable, { WardrobeItem } from '@/components/style-seer/WardrobeTable';
+import ImageWardrobe from '@/components/style-seer/ImageWardrobe';
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import SearchHistory from '@/components/style-seer/SearchHistory';
@@ -121,7 +122,8 @@ export default function StyleSeerPage() {
   const [includeLingerie, setIncludeLingerie] = useState(false);
   const [availableBrands, setAvailableBrands] = useState(preferredBrands);
   const [selectedCategory, setSelectedCategory] = useState('Auto');
-  const [uploadMode, setUploadMode] = useState<'single' | 'wardrobe'>('single');
+  const [mode, setMode] = useState<'single' | 'wardrobe'>('single');
+  const [wardrobeInputMode, setWardrobeInputMode] = useState<'text' | 'image'>('text');
   const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([{ category: '', brand: '' }]);
 
 
@@ -568,25 +570,56 @@ export default function StyleSeerPage() {
                         {!isLoading && !analysis && (
                         <div className="flex flex-col items-center">
                             <div className="flex items-center space-x-2 mb-4">
-                                <Label htmlFor="upload-mode-switch">Single</Label>
+                                <Label htmlFor="mode-switch">Single</Label>
                                 <Switch
-                                    id="upload-mode-switch"
-                                    checked={uploadMode === 'wardrobe'}
-                                    onCheckedChange={(checked) => setUploadMode(checked ? 'wardrobe' : 'single')}
+                                    id="mode-switch"
+                                    checked={mode === 'wardrobe'}
+                                    onCheckedChange={(checked) => setMode(checked ? 'wardrobe' : 'single')}
                                 />
-                                <Label htmlFor="upload-mode-switch">Wardrobe</Label>
+                                <Label htmlFor="mode-switch">Wardrobe</Label>
                             </div>
-                            {uploadMode === 'single' ? (
+
+                            {mode === 'single' ? (
                                 <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
                             ) : (
-                                <>
-                                    <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
-                                    <div className="mt-6">
-                                        <Button onClick={handleWardrobeRecommendation} size="lg">
-                                            Get Recommendations
+                                <div className="w-full max-w-2xl">
+                                    <div className="flex justify-center mb-4 space-x-2">
+                                        <Button
+                                            variant={wardrobeInputMode === 'text' ? 'secondary' : 'outline'}
+                                            onClick={() => setWardrobeInputMode('text')}>
+                                            Text Input
+                                        </Button>
+                                        <Button
+                                            variant={wardrobeInputMode === 'image' ? 'secondary' : 'outline'}
+                                            onClick={() => setWardrobeInputMode('image')}>
+                                            Image Mode
                                         </Button>
                                     </div>
-                                </>
+
+                                    {wardrobeInputMode === 'text' && (
+                                        <>
+                                            <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
+                                            <div className="mt-6 text-center">
+                                                <Button onClick={handleWardrobeRecommendation} size="lg">
+                                                    Get Recommendations
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {wardrobeInputMode === 'image' && (
+                                        <ImageWardrobe
+                                            analyzeClothingImage={analyzeClothingImage}
+                                            onAnalysisComplete={(results) => {
+                                                addLog({
+                                                    event: 'response',
+                                                    flow: 'analyzeClothingImage',
+                                                    data: results
+                                                });
+                                            }}
+                                        />
+                                    )}
+                                </div>
                             )}
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">Country of Residence</Label>
