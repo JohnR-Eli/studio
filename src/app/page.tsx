@@ -125,6 +125,7 @@ export default function StyleSeerPage() {
   const [mode, setMode] = useState<'single' | 'wardrobe'>('single');
   const [wardrobeInputMode, setWardrobeInputMode] = useState<'text' | 'image'>('text');
   const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([{ category: '', brand: '' }]);
+  const [imageAnalysisResults, setImageAnalysisResults] = useState<any[]>([]);
 
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
@@ -616,6 +617,7 @@ export default function StyleSeerPage() {
                                                     flow: 'analyzeClothingImage',
                                                     data: results
                                                 });
+                                                setImageAnalysisResults(results);
                                             }}
                                         />
                                     )}
@@ -728,7 +730,7 @@ export default function StyleSeerPage() {
             <BackendLogs logs={logs} />
         </TabsContent>
       </Tabs>
-      {showDebugPanel && <DebugPanel logs={logs} />}
+      {showDebugPanel && <DebugPanel logs={logs} imageAnalysisResults={imageAnalysisResults} />}
     </div>
   );
 }
