@@ -112,7 +112,7 @@ export const findSimilarItems = ai.defineFlow(
                         merchantName: apiResponse.merchantNames?.[i] || 'TBD',
                         itemPrice: apiResponse.itemPrices?.[i] || 'TBD',
                         vendorLink: apiResponse.URLs[i],
-                        imageURL: apiResponse.imageURLs[i],
+                        imageURL: apiResponse.imageURLs[i].replace(/\[/g, '%5B').replace(/\]/g, '%5D'),
                     };
                     allSimilarItems.push(similarItem);
                 }
@@ -168,7 +168,7 @@ export const findSimilarItems = ai.defineFlow(
                                 merchantName: apiResponse.merchantNames?.[i] || 'TBD',
                                 itemPrice: apiResponse.itemPrices?.[i] || 'TBD',
                                 vendorLink: apiResponse.URLs[i],
-                                imageURL: apiResponse.imageURLs[i],
+                                imageURL: apiResponse.imageURLs[i].replace(/\[/g, '%5B').replace(/\]/g, '%5D'),
                             };
                             allSimilarItems.push(similarItem);
                         }
