@@ -30,51 +30,64 @@ export default function ImageWardrobe({ onAnalysisComplete, analyzeClothingImage
   const [images, setImages] = useState<ImageState[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleFiles = useCallback(async (files: File[]) => {
+  const handleFiles = useCallback((files: File[]) => {
     const newImageStates: ImageState[] = Array.from(files).map(file => ({
       id: `${file.name}-${file.lastModified}`,
       file,
       preview: URL.createObjectURL(file),
       result: null,
-      isLoading: true,
+      isLoading: false, // Don't start loading immediately
       error: null,
     }));
-
     setImages(prev => [...prev, ...newImageStates]);
+  }, []);
 
-    const allResults: AnalysisResult[] = [];
+  const handleGetRecommendations = useCallback(async () => {
+    // 1. Set all images to loading state
+    setImages(prev => prev.map(img => ({ ...img, isLoading: true, error: null })));
 
-    for (const imageState of newImageStates) {
-      try {
+    const analysisPromises = images.map(imageState =>
+      new Promise<AnalysisResult>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(imageState.file);
-        reader.onloadend = async () => {
-          const base64data = reader.result as string;
-          const analysisResult = await analyzeClothingImage({ photoDataUri: base64data });
+        reader.onload = async () => {
+          try {
+            const base64data = reader.result as string;
+            const analysisResult = await analyzeClothingImage({ photoDataUri: base64data });
 
-          let finalResult: AnalysisResult;
-          if (analysisResult) {
-            const brand = analysisResult.identifiedBrand || analysisResult.approximatedBrands?.[0] || analysisResult.alternativeBrands?.[0] || 'Unknown';
-            const category = analysisResult.clothingItems[0] || 'Unknown';
-            finalResult = { brand, category };
-          } else {
-            finalResult = { brand: 'Unknown', category: 'Analysis Failed' };
-          }
+            let finalResult: AnalysisResult;
+            if (analysisResult) {
+              const brand = analysisResult.identifiedBrand || analysisResult.approximatedBrands?.[0] || analysisResult.alternativeBrands?.[0] || 'Unknown';
+              const category = analysisResult.clothingItems[0] || 'Unknown';
+              finalResult = { brand, category };
+            } else {
+              throw new Error('Analysis failed');
+            }
 
-          allResults.push(finalResult);
-          setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, result: finalResult, isLoading: false } : img));
-
-          // Check if all new images are processed
-          if (allResults.length === newImageStates.length) {
-            onAnalysisComplete(allResults);
+            setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, result: finalResult, isLoading: false } : img));
+            resolve(finalResult);
+          } catch (e: any) {
+            const error = e instanceof Error ? e.message : String(e);
+            setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, error, isLoading: false } : img));
+            // Resolve with a specific error structure if you want to pass it up, or just let it be caught by Promise.all
+            reject(new Error(`Failed to analyze ${imageState.file.name}`));
           }
         };
-      } catch (e: any) {
-        const error = e instanceof Error ? e.message : String(e);
-        setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, error, isLoading: false } : img));
-      }
+        reader.onerror = (error) => {
+            setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, error: 'File read error', isLoading: false } : img));
+            reject(error);
+        }
+      })
+    );
+
+    try {
+      const allResults = await Promise.all(analysisPromises);
+      onAnalysisComplete(allResults);
+    } catch (error) {
+      console.error("An error occurred during the analysis of one or more images:", error);
+      // Optionally set a global error state here if needed
     }
-  }, [analyzeClothingImage, onAnalysisComplete]);
+  }, [images, analyzeClothingImage, onAnalysisComplete, setImages]);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -152,13 +165,18 @@ export default function ImageWardrobe({ onAnalysisComplete, analyzeClothingImage
                         <p className="font-bold text-sm">{image.result.brand}</p>
                         <p className="text-xs">{image.result.category}</p>
                       </div>
-                    ) : (
-                       <p className="text-red-400 text-xs p-2">{image.error || "An unknown error occurred"}</p>
-                    )}
+                    ) : image.error ? (
+                       <p className="text-red-400 text-xs p-2">{image.error}</p>
+                    ) : null}
                   </div>
                 </CardContent>
               </Card>
             ))}
+          </div>
+          <div className="text-center mt-6">
+            <Button onClick={handleGetRecommendations} size="lg" disabled={images.length === 0}>
+                Get Recommendations
+            </Button>
           </div>
         </div>
       )}
