@@ -335,81 +335,91 @@ export default function StyleSeerPage() {
   }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
 
   const handleWardrobeAnalysisRecommendation = useCallback(async (results: any[]) => {
-    if (results.length === 0) return;
+    if (results.length === 0) {
+        setError("No items to analyze for recommendations.");
+        return;
+    }
 
     setIsLoading(true);
     setCurrentLoadingMessage("Analyzing wardrobe for recommendations...");
 
-    const categoryCounts = results.reduce((acc: Record<string, number>, result) => {
-      const category = result.category;
-      if (category && category !== 'Unknown' && category !== 'Analysis Failed') {
-        acc[category] = (acc[category] || 0) + 1;
+    try {
+      const categoryCounts = results.reduce((acc: Record<string, number>, result) => {
+        const category = result.category;
+        if (category && category !== 'Unknown' && category !== 'Analysis Failed') {
+          acc[category] = (acc[category] || 0) + 1;
+        }
+        return acc;
+      }, {});
+
+      const sortedEntries = Object.entries(categoryCounts).sort(([, a], [, b]) => b - a);
+
+      let categoriesToSearch: string[];
+      let itemsPerCategory: number;
+
+      const thresholdMet = sortedEntries.length > 0 && sortedEntries[0][1] >= 3;
+
+      if (thresholdMet) {
+        categoriesToSearch = sortedEntries.slice(0, 3).map(([category]) => category);
+        itemsPerCategory = 5;
+      } else {
+        categoriesToSearch = sortedEntries.map(([category]) => category);
+        itemsPerCategory = 3;
       }
-      return acc;
-    }, {});
 
-    const sortedCategories = Object.entries(categoryCounts)
-      .sort(([, a], [, b]) => b - a)
-      .map(([category]) => category);
+      if (categoriesToSearch.length === 0) {
+        setError("Could not determine any valid categories from the uploaded images.");
+        setIsLoading(false);
+        return;
+      }
 
-    const top3Categories = sortedCategories.slice(0, 3);
+      const initialAnalysis: AnalysisState = {
+          clothingItems: categoriesToSearch,
+          genderDepartment: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
+          similarItems: [],
+          complementaryItems: [],
+          approximatedBrands: [],
+          alternativeBrands: [],
+      };
+      setAnalysis(initialAnalysis);
 
-    const initialAnalysis: AnalysisState = {
-        clothingItems: top3Categories,
-        genderDepartment: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
-        similarItems: [],
-        approximatedBrands: [],
-        alternativeBrands: [],
-    };
-    setAnalysis(initialAnalysis);
-
-    if (top3Categories.length > 0) {
+      // Fetch Similar Items ("Shop the Look")
       setIsLoadingSimilarItems(true);
-      setCurrentLoadingMessage("Finding recommendations for your wardrobe...");
+      const recommendationPromises = categoriesToSearch.map(category =>
+        findSimilarItems({
+          isWardrobeFlow: true,
+          wardrobe: [{ category: category, brand: '' }], // Simulate a wardrobe with one item
+          country,
+          numSimilarItems: itemsPerCategory,
+          gender: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
+        })
+      );
+      const recommendationResults = await Promise.all(recommendationPromises);
+      const allSimilarItems = recommendationResults.flatMap(result =>
+          result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }))
+      );
+      setAnalysis(prev => prev ? { ...prev, similarItems: allSimilarItems } : null);
+      setIsLoadingSimilarItems(false);
 
-      try {
-        const recommendationPromises = top3Categories.map(category =>
-          findSimilarItems({
-            clothingItem: category,
-            country,
-            numSimilarItems: 5,
-            gender: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
-            photoDataUri: '', // Provide dummy data
-            targetBrandNames: [], // Provide dummy data
-          })
-        );
+      // Fetch Complementary Items ("Complete the Look")
+      setIsLoadingComplementaryItems(true);
+      const complementaryResult = await findComplementaryItems({
+          originalClothingCategories: categoriesToSearch,
+          gender: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
+          country,
+          numItemsPerCategory: 2,
+      });
+      setAnalysis(prev => prev ? { ...prev, complementaryItems: complementaryResult.complementaryItems } : null);
 
-        const recommendationResults = await Promise.all(recommendationPromises);
-
-        const allSimilarItems = recommendationResults.flatMap(result =>
-            result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }))
-        );
-
-        setAnalysis(prev => prev ? { ...prev, similarItems: allSimilarItems } : null);
-        setIsLoadingSimilarItems(false);
-
-        // Now, find complementary items
-        setIsLoadingComplementaryItems(true);
-        const complementaryResult = await findComplementaryItems({
-            originalClothingCategories: top3Categories,
-            gender: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
-            country,
-            numItemsPerCategory: 2, // Fetch 2 items for each complementary category
-        });
-        setAnalysis(prev => prev ? { ...prev, complementaryItems: complementaryResult.complementaryItems } : null);
-
-      } catch (e: any) {
-        const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
-        setError(`Could not fetch recommendations: ${errorMessage}`);
-      } finally {
-        setIsLoading(false);
-        setIsLoadingSimilarItems(false); // Ensure this is always false at the end
-        setIsLoadingComplementaryItems(false);
-      }
-    } else {
-        setIsLoading(false);
+    } catch (e: any) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      setError(`Could not fetch recommendations: ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingSimilarItems(false);
+      setIsLoadingComplementaryItems(false);
     }
-  }, [country, genderDepartment]);
+  }, [country, genderDepartment, setAnalysis, setError, setIsLoading, setCurrentLoadingMessage, setIsLoadingSimilarItems, setIsLoadingComplementaryItems]);
 
   const handleWardrobeRecommendation = useCallback(async () => {
     const validWardrobeItems = wardrobe.filter(item => item.category.trim() !== '' && item.brand.trim() !== '');
