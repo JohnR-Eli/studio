@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/style-seer/ImageUpload';
 import WardrobeTable, { WardrobeItem } from '@/components/style-seer/WardrobeTable';
+import ImageWardrobe from '@/components/style-seer/ImageWardrobe';
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import SearchHistory from '@/components/style-seer/SearchHistory';
@@ -121,8 +122,10 @@ export default function StyleSeerPage() {
   const [includeLingerie, setIncludeLingerie] = useState(false);
   const [availableBrands, setAvailableBrands] = useState(preferredBrands);
   const [selectedCategory, setSelectedCategory] = useState('Auto');
-  const [uploadMode, setUploadMode] = useState<'single' | 'wardrobe'>('single');
+  const [mode, setMode] = useState<'single' | 'wardrobe'>('single');
+  const [wardrobeInputMode, setWardrobeInputMode] = useState<'text' | 'image'>('text');
   const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([{ category: '', brand: '' }]);
+  const [imageAnalysisResults, setImageAnalysisResults] = useState<any[]>([]);
 
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
@@ -330,6 +333,83 @@ export default function StyleSeerPage() {
       setIsLoading(false);
     }
   }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
+
+  const handleWardrobeAnalysisRecommendation = useCallback(async (results: any[]) => {
+    if (results.length === 0) return;
+
+    setIsLoading(true);
+    setCurrentLoadingMessage("Analyzing wardrobe for recommendations...");
+
+    const categoryCounts = results.reduce((acc: Record<string, number>, result) => {
+      const category = result.category;
+      if (category && category !== 'Unknown' && category !== 'Analysis Failed') {
+        acc[category] = (acc[category] || 0) + 1;
+      }
+      return acc;
+    }, {});
+
+    const sortedCategories = Object.entries(categoryCounts)
+      .sort(([, a], [, b]) => b - a)
+      .map(([category]) => category);
+
+    const top3Categories = sortedCategories.slice(0, 3);
+
+    const initialAnalysis: AnalysisState = {
+        clothingItems: top3Categories,
+        genderDepartment: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
+        similarItems: [],
+        approximatedBrands: [],
+        alternativeBrands: [],
+    };
+    setAnalysis(initialAnalysis);
+
+    if (top3Categories.length > 0) {
+      setIsLoadingSimilarItems(true);
+      setCurrentLoadingMessage("Finding recommendations for your wardrobe...");
+
+      try {
+        const recommendationPromises = top3Categories.map(category =>
+          findSimilarItems({
+            clothingItem: category,
+            country,
+            numSimilarItems: 5,
+            gender: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
+            photoDataUri: '', // Provide dummy data
+            targetBrandNames: [], // Provide dummy data
+          })
+        );
+
+        const recommendationResults = await Promise.all(recommendationPromises);
+
+        const allSimilarItems = recommendationResults.flatMap(result =>
+            result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }))
+        );
+
+        setAnalysis(prev => prev ? { ...prev, similarItems: allSimilarItems } : null);
+        setIsLoadingSimilarItems(false);
+
+        // Now, find complementary items
+        setIsLoadingComplementaryItems(true);
+        const complementaryResult = await findComplementaryItems({
+            originalClothingCategories: top3Categories,
+            gender: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
+            country,
+            numItemsPerCategory: 2, // Fetch 2 items for each complementary category
+        });
+        setAnalysis(prev => prev ? { ...prev, complementaryItems: complementaryResult.complementaryItems } : null);
+
+      } catch (e: any) {
+        const errorMessage = e instanceof Error ? e.message : String(e) || "An unknown error occurred.";
+        setError(`Could not fetch recommendations: ${errorMessage}`);
+      } finally {
+        setIsLoading(false);
+        setIsLoadingSimilarItems(false); // Ensure this is always false at the end
+        setIsLoadingComplementaryItems(false);
+      }
+    } else {
+        setIsLoading(false);
+    }
+  }, [country, genderDepartment]);
 
   const handleWardrobeRecommendation = useCallback(async () => {
     const validWardrobeItems = wardrobe.filter(item => item.category.trim() !== '' && item.brand.trim() !== '');
@@ -568,25 +648,58 @@ export default function StyleSeerPage() {
                         {!isLoading && !analysis && (
                         <div className="flex flex-col items-center">
                             <div className="flex items-center space-x-2 mb-4">
-                                <Label htmlFor="upload-mode-switch">Single</Label>
+                                <Label htmlFor="mode-switch">Single</Label>
                                 <Switch
-                                    id="upload-mode-switch"
-                                    checked={uploadMode === 'wardrobe'}
-                                    onCheckedChange={(checked) => setUploadMode(checked ? 'wardrobe' : 'single')}
+                                    id="mode-switch"
+                                    checked={mode === 'wardrobe'}
+                                    onCheckedChange={(checked) => setMode(checked ? 'wardrobe' : 'single')}
                                 />
-                                <Label htmlFor="upload-mode-switch">Wardrobe</Label>
+                                <Label htmlFor="mode-switch">Wardrobe</Label>
                             </div>
-                            {uploadMode === 'single' ? (
+
+                            {mode === 'single' ? (
                                 <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
                             ) : (
-                                <>
-                                    <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
-                                    <div className="mt-6">
-                                        <Button onClick={handleWardrobeRecommendation} size="lg">
-                                            Get Recommendations
+                                <div className="w-full max-w-2xl">
+                                    <div className="flex justify-center mb-4 space-x-2">
+                                        <Button
+                                            variant={wardrobeInputMode === 'text' ? 'secondary' : 'outline'}
+                                            onClick={() => setWardrobeInputMode('text')}>
+                                            Text Input
+                                        </Button>
+                                        <Button
+                                            variant={wardrobeInputMode === 'image' ? 'secondary' : 'outline'}
+                                            onClick={() => setWardrobeInputMode('image')}>
+                                            Image Mode
                                         </Button>
                                     </div>
-                                </>
+
+                                    {wardrobeInputMode === 'text' && (
+                                        <>
+                                            <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
+                                            <div className="mt-6 text-center">
+                                                <Button onClick={handleWardrobeRecommendation} size="lg">
+                                                    Get Recommendations
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {wardrobeInputMode === 'image' && (
+                                        <ImageWardrobe
+                                            analyzeClothingImage={analyzeClothingImage}
+                                            onAnalysisComplete={(results) => {
+                                                addLog({
+                                                    event: 'response',
+                                                    flow: 'analyzeClothingImage',
+                                                    data: results
+                                                });
+                                                setImageAnalysisResults(results);
+                                                handleWardrobeAnalysisRecommendation(results);
+                                            }}
+                                        />
+                                    )}
+                                </div>
                             )}
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">Country of Residence</Label>
@@ -695,7 +808,7 @@ export default function StyleSeerPage() {
             <BackendLogs logs={logs} />
         </TabsContent>
       </Tabs>
-      {showDebugPanel && <DebugPanel logs={logs} />}
+      {showDebugPanel && <DebugPanel logs={logs} imageAnalysisResults={imageAnalysisResults} />}
     </div>
   );
 }
