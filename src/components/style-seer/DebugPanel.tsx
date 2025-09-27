@@ -7,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Server, ArrowDown, ArrowUp, AlertTriangle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface DebugPanelProps {
   logs: LogEntry[];
+  imageAnalysisResults: any[];
 }
 
-export default function DebugPanel({ logs }: DebugPanelProps) {
+export default function DebugPanel({ logs, imageAnalysisResults }: DebugPanelProps) {
   const getBadgeVariant = (event: LogEntry['event']) => {
     switch (event) {
       case 'invoke':
@@ -41,7 +43,7 @@ export default function DebugPanel({ logs }: DebugPanelProps) {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border/60 shadow-2xl">
-      <Accordion type="single" collapsible>
+      <Accordion type="single" collapsible defaultValue="debug-panel">
         <AccordionItem value="debug-panel" className="border-b-0">
           <AccordionTrigger className="py-2 px-4 text-sm font-semibold">
             <div className="flex items-center">
@@ -51,33 +53,54 @@ export default function DebugPanel({ logs }: DebugPanelProps) {
             </div>
           </AccordionTrigger>
           <AccordionContent>
-            <ScrollArea className="h-64 bg-background">
-              <div className="p-4 text-xs font-mono">
-                {logs.length === 0 ? (
-                  <p className="text-center text-muted-foreground">No API calls logged yet. Upload an image to start.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {logs.map(log => (
-                      <Card key={log.id} className="bg-muted/30">
-                        <CardHeader className="p-2 flex-row justify-between items-center">
-                            <CardTitle className="text-xs font-semibold flex items-center">
-                                {getEventIcon(log.event)}
-                                {log.flow}
-                                <Badge variant={getBadgeVariant(log.event)} className="ml-2 capitalize">{log.event}</Badge>
-                            </CardTitle>
-                            <span className="text-muted-foreground text-[10px]">{new Date(log.timestamp).toLocaleTimeString()}</span>
-                        </CardHeader>
-                        <CardContent className="p-2 pt-0">
-                           <pre className="whitespace-pre-wrap break-all bg-background p-2 rounded-sm border">
-                             {JSON.stringify(log.data, null, 2)}
-                           </pre>
-                        </CardContent>
-                      </Card>
-                    ))}
+            <Tabs defaultValue="all-logs">
+              <TabsList className="w-full justify-start rounded-none bg-muted">
+                <TabsTrigger value="all-logs">All Logs</TabsTrigger>
+                <TabsTrigger value="image-analysis">Image Mode Analysis</TabsTrigger>
+              </TabsList>
+              <TabsContent value="all-logs">
+                <ScrollArea className="h-64 bg-background">
+                  <div className="p-4 text-xs font-mono">
+                    {logs.length === 0 ? (
+                      <p className="text-center text-muted-foreground">No API calls logged yet. Upload an image to start.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {logs.map(log => (
+                          <Card key={log.id} className="bg-muted/30">
+                            <CardHeader className="p-2 flex-row justify-between items-center">
+                                <CardTitle className="text-xs font-semibold flex items-center">
+                                    {getEventIcon(log.event)}
+                                    {log.flow}
+                                    <Badge variant={getBadgeVariant(log.event)} className="ml-2 capitalize">{log.event}</Badge>
+                                </CardTitle>
+                                <span className="text-muted-foreground text-[10px]">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                            </CardHeader>
+                            <CardContent className="p-2 pt-0">
+                               <pre className="whitespace-pre-wrap break-all bg-background p-2 rounded-sm border">
+                                 {JSON.stringify(log.data, null, 2)}
+                               </pre>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </ScrollArea>
+                </ScrollArea>
+              </TabsContent>
+              <TabsContent value="image-analysis">
+                <ScrollArea className="h-64 bg-background">
+                  <div className="p-4 text-xs font-mono">
+                    {imageAnalysisResults.length === 0 ? (
+                      <p className="text-center text-muted-foreground">No image analysis results yet. Use the Image Mode to generate results.</p>
+                    ) : (
+                       <pre className="whitespace-pre-wrap break-all bg-background p-2 rounded-sm border">
+                         {JSON.stringify(imageAnalysisResults, null, 2)}
+                       </pre>
+                    )}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
