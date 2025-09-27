@@ -342,6 +342,7 @@ export default function StyleSeerPage() {
 
     setIsLoading(true);
     setCurrentLoadingMessage("Analyzing wardrobe for recommendations...");
+    setLogs([]); // Reset logs for this new analysis
 
     try {
       const categoryCounts = results.reduce((acc: Record<string, number>, result) => {
@@ -382,44 +383,68 @@ export default function StyleSeerPage() {
           alternativeBrands: [],
       };
       setAnalysis(initialAnalysis);
+      const determinedGender = genderDepartment === 'Auto' ? 'Unisex' : genderDepartment;
 
       // Fetch Similar Items ("Shop the Look")
       setIsLoadingSimilarItems(true);
-      const recommendationPromises = categoriesToSearch.map(category =>
-        findSimilarItems({
-          isWardrobeFlow: true,
-          wardrobe: [{ category: category, brand: '' }], // Simulate a wardrobe with one item
-          country,
-          numSimilarItems: itemsPerCategory,
-          gender: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
-        })
-      );
+      const similarItemsPayloads = categoriesToSearch.map(category => ({
+        isWardrobeFlow: true,
+        wardrobe: [{ category: category, brand: '' }], // Simulate a wardrobe with one item
+        country,
+        numSimilarItems: itemsPerCategory,
+        gender: determinedGender,
+      }));
+
+      addLog({
+        event: 'invoke',
+        flow: 'findSimilarItems',
+        data: { message: `Finding similar items for wardrobe categories`, payloads: similarItemsPayloads }
+      });
+
+      const recommendationPromises = similarItemsPayloads.map(payload => findSimilarItems(payload));
       const recommendationResults = await Promise.all(recommendationPromises);
+
+      recommendationResults.forEach(result => {
+        if (result.logs) {
+            addLog(result.logs);
+        }
+      });
+
       const allSimilarItems = recommendationResults.flatMap(result =>
           result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }))
       );
+
+      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: allSimilarItems } });
       setAnalysis(prev => prev ? { ...prev, similarItems: allSimilarItems } : null);
       setIsLoadingSimilarItems(false);
 
       // Fetch Complementary Items ("Complete the Look")
       setIsLoadingComplementaryItems(true);
-      const complementaryResult = await findComplementaryItems({
+      const complementaryInput = {
           originalClothingCategories: categoriesToSearch,
-          gender: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
+          gender: determinedGender,
           country,
           numItemsPerCategory: 2,
-      });
+      };
+      addLog({ event: 'invoke', flow: 'findComplementaryItems', data: complementaryInput });
+      const complementaryResult = await findComplementaryItems(complementaryInput);
+
+      if (complementaryResult.logs) {
+        addLog(complementaryResult.logs);
+      }
+      addLog({ event: 'response', flow: 'findComplementaryItems', data: { complementaryItems: complementaryResult.complementaryItems } });
       setAnalysis(prev => prev ? { ...prev, complementaryItems: complementaryResult.complementaryItems } : null);
 
     } catch (e: any) {
       const errorMessage = e instanceof Error ? e.message : String(e);
+      addLog({ event: 'error', flow: 'callExternalApi', data: { error: errorMessage, context: "handleWardrobeAnalysisRecommendation" } });
       setError(`Could not fetch recommendations: ${errorMessage}`);
     } finally {
       setIsLoading(false);
       setIsLoadingSimilarItems(false);
       setIsLoadingComplementaryItems(false);
     }
-  }, [country, genderDepartment, setAnalysis, setError, setIsLoading, setCurrentLoadingMessage, setIsLoadingSimilarItems, setIsLoadingComplementaryItems]);
+  }, [country, genderDepartment, addLog, setAnalysis, setError, setIsLoading, setCurrentLoadingMessage, setIsLoadingSimilarItems, setIsLoadingComplementaryItems]);
 
   const handleWardrobeRecommendation = useCallback(async () => {
     const validWardrobeItems = wardrobe.filter(item => item.category.trim() !== '' && item.brand.trim() !== '');
@@ -699,14 +724,10 @@ export default function StyleSeerPage() {
                                         <ImageWardrobe
                                             analyzeClothingImage={analyzeClothingImage}
                                             onAnalysisComplete={(results) => {
-                                                addLog({
-                                                    event: 'response',
-                                                    flow: 'analyzeClothingImage',
-                                                    data: results
-                                                });
                                                 setImageAnalysisResults(results);
                                                 handleWardrobeAnalysisRecommendation(results);
                                             }}
+                                            addLog={addLog}
                                         />
                                     )}
                                 </div>

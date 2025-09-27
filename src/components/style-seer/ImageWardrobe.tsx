@@ -1,11 +1,20 @@
 "use client";
 
 import { useState, useCallback } from 'react';
-import { AnalyzeClothingImageOutput, analyzeClothingImage } from '@/ai/flows/analyze-clothing-image';
+import { AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import LoadingSpinner from './LoadingSpinner';
 import { UploadCloud, X } from 'lucide-react';
+
+// Copied from page.tsx to avoid circular dependencies
+export type LogEntry = {
+  id: string;
+  timestamp: string;
+  event: 'invoke' | 'response' | 'error';
+  flow: 'analyzeClothingImage' | 'findSimilarItems' | 'findComplementaryItems' | 'callExternalApi';
+  data: any;
+};
 
 type AnalysisResult = {
   category: string;
@@ -24,9 +33,10 @@ type ImageState = {
 interface ImageWardrobeProps {
   onAnalysisComplete: (results: AnalysisResult[]) => void;
   analyzeClothingImage: (input: { photoDataUri: string; }) => Promise<AnalyzeClothingImageOutput | null>;
+  addLog: (log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => void;
 }
 
-export default function ImageWardrobe({ onAnalysisComplete, analyzeClothingImage }: ImageWardrobeProps) {
+export default function ImageWardrobe({ onAnalysisComplete, analyzeClothingImage, addLog }: ImageWardrobeProps) {
   const [images, setImages] = useState<ImageState[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -43,51 +53,55 @@ export default function ImageWardrobe({ onAnalysisComplete, analyzeClothingImage
   }, []);
 
   const handleGetRecommendations = useCallback(async () => {
-    // 1. Set all images to loading state
     setImages(prev => prev.map(img => ({ ...img, isLoading: true, error: null })));
 
     const analysisPromises = images.map(imageState =>
-      new Promise<AnalysisResult>((resolve, reject) => {
+      new Promise<AnalysisResult | null>((resolve) => {
         const reader = new FileReader();
         reader.readAsDataURL(imageState.file);
         reader.onload = async () => {
           try {
             const base64data = reader.result as string;
+
+            const inputPayload = {
+              photoDataUri: base64data.substring(0, 50) + '...',
+              fileName: imageState.file.name,
+            };
+            addLog({ event: 'invoke', flow: 'analyzeClothingImage', data: inputPayload });
+
             const analysisResult = await analyzeClothingImage({ photoDataUri: base64data });
 
-            let finalResult: AnalysisResult;
+            addLog({ event: 'response', flow: 'analyzeClothingImage', data: analysisResult || "No result" });
+
             if (analysisResult) {
               const brand = analysisResult.identifiedBrand || analysisResult.approximatedBrands?.[0] || analysisResult.alternativeBrands?.[0] || 'Unknown';
               const category = analysisResult.clothingItems[0] || 'Unknown';
-              finalResult = { brand, category };
+              const finalResult = { brand, category };
+              setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, result: finalResult, isLoading: false } : img));
+              resolve(finalResult);
             } else {
               throw new Error('Analysis failed');
             }
-
-            setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, result: finalResult, isLoading: false } : img));
-            resolve(finalResult);
           } catch (e: any) {
             const error = e instanceof Error ? e.message : String(e);
+            addLog({ event: 'error', flow: 'analyzeClothingImage', data: { error, fileName: imageState.file.name } });
             setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, error, isLoading: false } : img));
-            // Resolve with a specific error structure if you want to pass it up, or just let it be caught by Promise.all
-            reject(new Error(`Failed to analyze ${imageState.file.name}`));
+            resolve(null); // Resolve with null on error so Promise.allSettled isn't needed
           }
         };
         reader.onerror = (error) => {
+            addLog({ event: 'error', flow: 'analyzeClothingImage', data: { error: 'File read error', fileName: imageState.file.name }});
             setImages(prev => prev.map(img => img.id === imageState.id ? { ...img, error: 'File read error', isLoading: false } : img));
-            reject(error);
+            resolve(null); // Resolve with null on error
         }
       })
     );
 
-    try {
-      const allResults = await Promise.all(analysisPromises);
-      onAnalysisComplete(allResults);
-    } catch (error) {
-      console.error("An error occurred during the analysis of one or more images:", error);
-      // Optionally set a global error state here if needed
-    }
-  }, [images, analyzeClothingImage, onAnalysisComplete, setImages]);
+    const allResults = await Promise.all(analysisPromises);
+    const successfulResults = allResults.filter((r): r is AnalysisResult => r !== null);
+    onAnalysisComplete(successfulResults);
+
+  }, [images, analyzeClothingImage, onAnalysisComplete, setImages, addLog]);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
