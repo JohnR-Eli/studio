@@ -107,14 +107,19 @@ export const findSimilarItems = ai.defineFlow(
 
             if (apiResponse.imageURLs && apiResponse.imageURLs.length > 0) {
                 for (let i = 0; i < apiResponse.imageURLs.length; i++) {
-                    const similarItem: SimilarItem = {
-                        productName: apiResponse.productNames?.[i] || 'TBD',
-                        merchantName: apiResponse.merchantNames?.[i] || 'TBD',
-                        itemPrice: apiResponse.itemPrices?.[i] || 'TBD',
-                        vendorLink: apiResponse.URLs[i],
-                        imageURL: apiResponse.imageURLs[i],
-                    };
-                    allSimilarItems.push(similarItem);
+                    const imageUrl = apiResponse.imageURLs[i];
+                    const vendorUrl = apiResponse.URLs[i];
+                    // Validate that the URLs are actual URLs
+                    if (imageUrl && imageUrl.startsWith('http') && vendorUrl && vendorUrl.startsWith('http')) {
+                        const similarItem: SimilarItem = {
+                            productName: apiResponse.productNames?.[i] || 'TBD',
+                            merchantName: apiResponse.merchantNames?.[i] || 'TBD',
+                            itemPrice: apiResponse.itemPrices?.[i] || 'TBD',
+                            vendorLink: vendorUrl.replace(/\[/g, '%5B').replace(/\]/g, '%5D'),
+                            imageURL: imageUrl.replace(/\[/g, '%5B').replace(/\]/g, '%5D'),
+                        };
+                        allSimilarItems.push(similarItem);
+                    }
                 }
             }
             // Extract the category from the first item for the complementary flow
@@ -163,14 +168,18 @@ export const findSimilarItems = ai.defineFlow(
 
                     if (apiResponse.imageURLs && apiResponse.imageURLs.length > 0) {
                         for (let i = 0; i < apiResponse.imageURLs.length; i++) {
-                            const similarItem: SimilarItem = {
-                                productName: apiResponse.productNames?.[i] || 'TBD',
-                                merchantName: apiResponse.merchantNames?.[i] || 'TBD',
-                                itemPrice: apiResponse.itemPrices?.[i] || 'TBD',
-                                vendorLink: apiResponse.URLs[i],
-                                imageURL: apiResponse.imageURLs[i],
-                            };
-                            allSimilarItems.push(similarItem);
+                            const imageUrl = apiResponse.imageURLs[i];
+                            const vendorUrl = apiResponse.URLs[i];
+                            if (imageUrl && imageUrl.startsWith('http') && vendorUrl && vendorUrl.startsWith('http')) {
+                                const similarItem: SimilarItem = {
+                                    productName: apiResponse.productNames?.[i] || 'TBD',
+                                    merchantName: apiResponse.merchantNames?.[i] || 'TBD',
+                                    itemPrice: apiResponse.itemPrices?.[i] || 'TBD',
+                                    vendorLink: vendorUrl.replace(/\[/g, '%5B').replace(/\]/g, '%5D'),
+                                    imageURL: imageUrl.replace(/\[/g, '%5B').replace(/\]/g, '%5D'),
+                                };
+                                allSimilarItems.push(similarItem);
+                            }
                         }
                         foundItemForBrand = true; // Stop trying for this brand
                     } else {
