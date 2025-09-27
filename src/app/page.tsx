@@ -109,6 +109,10 @@ export default function StyleSeerPage() {
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState("Analyzing image...");
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
+  const [openRouterModels, setOpenRouterModels] = useState<string[]>([]);
+  const [isModelsLoading, setIsModelsLoading] = useState(true);
+  const [modelError, setModelError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [country, setCountry] = useState('United States');
   const [currency, setCurrency] = useState('USD');
   const [genderDepartment, setGenderDepartment] = useState<'Male' | 'Female' | 'Unisex' | 'Auto'>('Auto');
@@ -573,6 +577,34 @@ export default function StyleSeerPage() {
     setCurrency(getCurrencyByCountry(country));
   }, [country]);
 
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/models');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch models: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const imageModels = data.data
+          .filter((model: any) => model.architecture.modality === 'text+image->text')
+          .map((model: any) => model.id);
+
+        setOpenRouterModels(imageModels);
+        if (imageModels.length > 0) {
+          setSelectedModel(imageModels[0]);
+        }
+      } catch (e: any) {
+        console.error("Error fetching OpenRouter models:", e);
+        setModelError("Could not load models from OpenRouter. Using fallback.");
+        setSelectedModel('googleai/gemini-2.5-pro');
+      } finally {
+        setIsModelsLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []);
+
 
   const handleReset = useCallback(() => {
     setImageUri(null);
@@ -732,6 +764,32 @@ export default function StyleSeerPage() {
                                     )}
                                 </div>
                             )}
+                            <div className="mt-4 w-full max-w-sm">
+                                <Label htmlFor="model-select" className="text-sm font-medium text-muted-foreground">Model</Label>
+                                <Select
+                                    value={selectedModel}
+                                    onValueChange={setSelectedModel}
+                                    disabled={isModelsLoading || !!modelError}
+                                >
+                                    <SelectTrigger id="model-select" className="mt-1">
+                                        <SelectValue placeholder={isModelsLoading ? "Loading models..." : "Select a model"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {modelError ? (
+                                            <SelectItem value={selectedModel} disabled>
+                                                {selectedModel} (fallback)
+                                            </SelectItem>
+                                        ) : (
+                                            openRouterModels.map((model) => (
+                                                <SelectItem key={model} value={model}>
+                                                    {model}
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                {modelError && <p className="text-xs text-red-500 mt-1">{modelError}</p>}
+                            </div>
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">Country of Residence</Label>
                                 <Select value={country} onValueChange={setCountry}>
