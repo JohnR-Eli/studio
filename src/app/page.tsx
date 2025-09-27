@@ -347,6 +347,16 @@ export default function StyleSeerPage() {
     }
   }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory, selectedModel]);
 
+  const analyzeWardrobeImage = useCallback(async ({ photoDataUri }: { photoDataUri: string; }) => {
+    return analyzeClothingImage({
+        photoDataUri,
+        selectedModel,
+        country,
+        genderDepartment,
+        includeLingerie: includeLingerie && genderDepartment === 'Female',
+      });
+  }, [selectedModel, country, genderDepartment, includeLingerie]);
+
   const handleWardrobeAnalysisRecommendation = useCallback(async (results: any[]) => {
     if (results.length === 0) {
         setError("No items to analyze for recommendations.");
@@ -765,7 +775,7 @@ export default function StyleSeerPage() {
 
                                     {wardrobeInputMode === 'image' && (
                                         <ImageWardrobe
-                                            analyzeClothingImage={analyzeClothingImage}
+                                            analyzeClothingImage={analyzeWardrobeImage}
                                             onAnalysisComplete={(results) => {
                                                 setImageAnalysisResults(results);
                                                 handleWardrobeAnalysisRecommendation(results);
