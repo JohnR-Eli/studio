@@ -97,6 +97,29 @@ const determineComplementaryCategorySingularPrompt = ai.definePrompt(
     },
 );
 
+// Helper function for retries with exponential backoff
+async function withRetry<T>(fn: () => Promise<T>, logs: Omit<LogEntry, 'id' | 'timestamp'>[], actionName: string, maxRetries = 3, initialDelay = 1000): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      const errorMessage = error.message || String(error);
+      if (errorMessage.includes('503') || errorMessage.toLowerCase().includes('service unavailable')) {
+        const delay = initialDelay * Math.pow(2, i);
+        logs.push({ event: 'error', flow: 'findComplementaryItems', data: { step: actionName, error: `Attempt ${i + 1} failed with a service unavailable error. Retrying in ${delay}ms...` } });
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        // Not a retryable error
+        throw error;
+      }
+    }
+  }
+  throw new Error(`Failed to ${actionName} after ${maxRetries} retries: ${lastError.message}`);
+}
+
+
 export const findComplementaryItems = ai.defineFlow(
   {
     name: 'findComplementaryItems',
@@ -112,12 +135,20 @@ export const findComplementaryItems = ai.defineFlow(
     
     try {
         if (input.isWardrobeFlow) {
-            const categoryResponse = await determineComplementaryCategorySingularPrompt({ category: input.category, gender });
+            const categoryResponse = await withRetry(
+                () => determineComplementaryCategorySingularPrompt({ category: input.category, gender }),
+                logs,
+                'determineComplementaryCategorySingular'
+            );
             categoriesToFind = categoryResponse.output?.categoriesToFind || [];
             // Exclude original category
             categoriesToFind = categoriesToFind.filter(cat => cat !== input.category);
         } else {
-            const categoryResponse = await determineCategoriesPrompt({ originalClothingCategories: input.originalClothingCategories, gender });
+            const categoryResponse = await withRetry(
+                () => determineCategoriesPrompt({ originalClothingCategories: input.originalClothingCategories, gender }),
+                logs,
+                'determineComplementaryCategories'
+            );
             categoriesToFind = categoryResponse.output?.categoriesToFind || [];
             // Exclude original categories
             if (input.originalClothingCategories && input.originalClothingCategories.length > 0) {
