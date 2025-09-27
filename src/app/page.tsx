@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ImageUpload from '@/components/style-seer/ImageUpload';
 import WardrobeTable, { WardrobeItem } from '@/components/style-seer/WardrobeTable';
+import ImageWardrobe from '@/components/style-seer/ImageWardrobe';
 import LoadingSpinner from '@/components/style-seer/LoadingSpinner';
 import Header from '@/components/style-seer/Header';
 import SearchHistory from '@/components/style-seer/SearchHistory';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { findComplementaryItems, ComplementaryItem, FindComplementaryItemsOutput } from '@/ai/flows/find-complementary-items';
-import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
+import { findSimilarItems, FindSimilarItemsInput, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
 import { AlertCircle, RotateCcw, History as HistoryIcon, FileText, ShoppingBag } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -108,6 +109,10 @@ export default function StyleSeerPage() {
   const [currentLoadingMessage, setCurrentLoadingMessage] = useState("Analyzing image...");
   const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
   const [saveHistoryPreference, setSaveHistoryPreference] = useState<boolean>(false);
+  const [openRouterModels, setOpenRouterModels] = useState<string[]>([]);
+  const [isModelsLoading, setIsModelsLoading] = useState(true);
+  const [modelError, setModelError] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [country, setCountry] = useState('United States');
   const [currency, setCurrency] = useState('USD');
   const [genderDepartment, setGenderDepartment] = useState<'Male' | 'Female' | 'Unisex' | 'Auto'>('Auto');
@@ -121,8 +126,10 @@ export default function StyleSeerPage() {
   const [includeLingerie, setIncludeLingerie] = useState(false);
   const [availableBrands, setAvailableBrands] = useState(preferredBrands);
   const [selectedCategory, setSelectedCategory] = useState('Auto');
-  const [uploadMode, setUploadMode] = useState<'single' | 'wardrobe'>('single');
+  const [mode, setMode] = useState<'single' | 'wardrobe'>('single');
+  const [wardrobeInputMode, setWardrobeInputMode] = useState<'text' | 'image'>('text');
   const [wardrobe, setWardrobe] = useState<WardrobeItem[]>([{ category: '', brand: '' }]);
+  const [imageAnalysisResults, setImageAnalysisResults] = useState<any[]>([]);
 
 
   const addLog = useCallback((log: Omit<LogEntry, 'id' | 'timestamp'> | Omit<LogEntry, 'id' | 'timestamp'>[]) => {
@@ -331,6 +338,118 @@ export default function StyleSeerPage() {
     }
   }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
 
+  const handleWardrobeAnalysisRecommendation = useCallback(async (results: any[]) => {
+    if (results.length === 0) {
+        setError("No items to analyze for recommendations.");
+        return;
+    }
+
+    setIsLoading(true);
+    setCurrentLoadingMessage("Analyzing wardrobe for recommendations...");
+    setLogs([]); // Reset logs for this new analysis
+
+    try {
+      const categoryCounts = results.reduce((acc: Record<string, number>, result) => {
+        const category = result.category;
+        if (category && category !== 'Unknown' && category !== 'Analysis Failed') {
+          acc[category] = (acc[category] || 0) + 1;
+        }
+        return acc;
+      }, {});
+
+      const sortedEntries = Object.entries(categoryCounts).sort(([, a], [, b]) => b - a);
+
+      let categoriesToSearch: string[];
+      let itemsPerCategory: number;
+
+      const thresholdMet = sortedEntries.length > 0 && sortedEntries[0][1] >= 3;
+
+      if (thresholdMet) {
+        categoriesToSearch = sortedEntries.slice(0, 3).map(([category]) => category);
+        itemsPerCategory = 5;
+      } else {
+        categoriesToSearch = sortedEntries.map(([category]) => category);
+        itemsPerCategory = 3;
+      }
+
+      if (categoriesToSearch.length === 0) {
+        setError("Could not determine any valid categories from the uploaded images.");
+        setIsLoading(false);
+        return;
+      }
+
+      const initialAnalysis: AnalysisState = {
+          clothingItems: categoriesToSearch,
+          genderDepartment: genderDepartment === 'Auto' ? 'Unisex' : genderDepartment,
+          similarItems: [],
+          complementaryItems: [],
+          approximatedBrands: [],
+          alternativeBrands: [],
+      };
+      setAnalysis(initialAnalysis);
+      const determinedGender = genderDepartment === 'Auto' ? 'Unisex' : genderDepartment;
+
+      // Fetch Similar Items ("Shop the Look")
+      setIsLoadingSimilarItems(true);
+      const similarItemsPayloads: FindSimilarItemsInput[] = categoriesToSearch.map((category): FindSimilarItemsInput => ({
+        isWardrobeFlow: true,
+        wardrobe: [{ category: category, brand: '' }], // Simulate a wardrobe with one item
+        country,
+        numSimilarItems: itemsPerCategory,
+        gender: determinedGender,
+      }));
+
+      addLog({
+        event: 'invoke',
+        flow: 'findSimilarItems',
+        data: { message: `Finding similar items for wardrobe categories`, payloads: similarItemsPayloads }
+      });
+
+      const recommendationPromises = similarItemsPayloads.map(payload => findSimilarItems(payload));
+      const recommendationResults = await Promise.all(recommendationPromises);
+
+      recommendationResults.forEach(result => {
+        if (result.logs) {
+            addLog(result.logs);
+        }
+      });
+
+      const allSimilarItems = recommendationResults.flatMap(result =>
+          result.similarItems.map(item => ({ ...item, imageURL: item.imageURL || 'https://placehold.co/400x500.png' }))
+      );
+
+      addLog({ event: 'response', flow: 'findSimilarItems', data: { similarItems: allSimilarItems } });
+      setAnalysis(prev => prev ? { ...prev, similarItems: allSimilarItems } : null);
+      setIsLoadingSimilarItems(false);
+
+      // Fetch Complementary Items ("Complete the Look")
+      setIsLoadingComplementaryItems(true);
+      const complementaryInput = {
+          originalClothingCategories: categoriesToSearch,
+          gender: determinedGender,
+          country,
+          numItemsPerCategory: 2,
+      };
+      addLog({ event: 'invoke', flow: 'findComplementaryItems', data: complementaryInput });
+      const complementaryResult = await findComplementaryItems(complementaryInput);
+
+      if (complementaryResult.logs) {
+        addLog(complementaryResult.logs);
+      }
+      addLog({ event: 'response', flow: 'findComplementaryItems', data: { complementaryItems: complementaryResult.complementaryItems } });
+      setAnalysis(prev => prev ? { ...prev, complementaryItems: complementaryResult.complementaryItems } : null);
+
+    } catch (e: any) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      addLog({ event: 'error', flow: 'callExternalApi', data: { error: errorMessage, context: "handleWardrobeAnalysisRecommendation" } });
+      setError(`Could not fetch recommendations: ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingSimilarItems(false);
+      setIsLoadingComplementaryItems(false);
+    }
+  }, [country, genderDepartment, addLog]);
+
   const handleWardrobeRecommendation = useCallback(async () => {
     const validWardrobeItems = wardrobe.filter(item => item.category.trim() !== '' && item.brand.trim() !== '');
     if (validWardrobeItems.length === 0) {
@@ -458,6 +577,34 @@ export default function StyleSeerPage() {
     setCurrency(getCurrencyByCountry(country));
   }, [country]);
 
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/models');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch models: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const imageModels = data.data
+          .filter((model: any) => model.architecture.modality === 'text+image->text')
+          .map((model: any) => model.id);
+
+        setOpenRouterModels(imageModels);
+        if (imageModels.length > 0) {
+          setSelectedModel(imageModels[0]);
+        }
+      } catch (e: any) {
+        console.error("Error fetching OpenRouter models:", e);
+        setModelError("Could not load models from OpenRouter. Using fallback.");
+        setSelectedModel('googleai/gemini-2.5-pro');
+      } finally {
+        setIsModelsLoading(false);
+      }
+    };
+
+    fetchModels();
+  }, []);
+
 
   const handleReset = useCallback(() => {
     setImageUri(null);
@@ -568,26 +715,81 @@ export default function StyleSeerPage() {
                         {!isLoading && !analysis && (
                         <div className="flex flex-col items-center">
                             <div className="flex items-center space-x-2 mb-4">
-                                <Label htmlFor="upload-mode-switch">Single</Label>
+                                <Label htmlFor="mode-switch">Single</Label>
                                 <Switch
-                                    id="upload-mode-switch"
-                                    checked={uploadMode === 'wardrobe'}
-                                    onCheckedChange={(checked) => setUploadMode(checked ? 'wardrobe' : 'single')}
+                                    id="mode-switch"
+                                    checked={mode === 'wardrobe'}
+                                    onCheckedChange={(checked) => setMode(checked ? 'wardrobe' : 'single')}
                                 />
-                                <Label htmlFor="upload-mode-switch">Wardrobe</Label>
+                                <Label htmlFor="mode-switch">Wardrobe</Label>
                             </div>
-                            {uploadMode === 'single' ? (
+
+                            {mode === 'single' ? (
                                 <ImageUpload onImageUpload={handleImageUpload} isLoading={isLoading} />
                             ) : (
-                                <>
-                                    <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
-                                    <div className="mt-6">
-                                        <Button onClick={handleWardrobeRecommendation} size="lg">
-                                            Get Recommendations
+                                <div className="w-full max-w-2xl">
+                                    <div className="flex justify-center mb-4 space-x-2">
+                                        <Button
+                                            variant={wardrobeInputMode === 'text' ? 'secondary' : 'outline'}
+                                            onClick={() => setWardrobeInputMode('text')}>
+                                            Text Input
+                                        </Button>
+                                        <Button
+                                            variant={wardrobeInputMode === 'image' ? 'secondary' : 'outline'}
+                                            onClick={() => setWardrobeInputMode('image')}>
+                                            Image Mode
                                         </Button>
                                     </div>
-                                </>
+
+                                    {wardrobeInputMode === 'text' && (
+                                        <>
+                                            <WardrobeTable wardrobe={wardrobe} setWardrobe={setWardrobe} />
+                                            <div className="mt-6 text-center">
+                                                <Button onClick={handleWardrobeRecommendation} size="lg">
+                                                    Get Recommendations
+                                                </Button>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {wardrobeInputMode === 'image' && (
+                                        <ImageWardrobe
+                                            analyzeClothingImage={analyzeClothingImage}
+                                            onAnalysisComplete={(results) => {
+                                                setImageAnalysisResults(results);
+                                                handleWardrobeAnalysisRecommendation(results);
+                                            }}
+                                            addLog={addLog}
+                                        />
+                                    )}
+                                </div>
                             )}
+                            <div className="mt-4 w-full max-w-sm">
+                                <Label htmlFor="model-select" className="text-sm font-medium text-muted-foreground">Model</Label>
+                                <Select
+                                    value={selectedModel}
+                                    onValueChange={setSelectedModel}
+                                    disabled={isModelsLoading || !!modelError}
+                                >
+                                    <SelectTrigger id="model-select" className="mt-1">
+                                        <SelectValue placeholder={isModelsLoading ? "Loading models..." : "Select a model"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {modelError ? (
+                                            <SelectItem value={selectedModel} disabled>
+                                                {selectedModel} (fallback)
+                                            </SelectItem>
+                                        ) : (
+                                            openRouterModels.map((model) => (
+                                                <SelectItem key={model} value={model}>
+                                                    {model}
+                                                </SelectItem>
+                                            ))
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                {modelError && <p className="text-xs text-red-500 mt-1">{modelError}</p>}
+                            </div>
                             <div className="mt-4 w-full max-w-sm">
                                 <Label htmlFor="country-select" className="text-sm font-medium text-muted-foreground">Country of Residence</Label>
                                 <Select value={country} onValueChange={setCountry}>
@@ -695,7 +897,7 @@ export default function StyleSeerPage() {
             <BackendLogs logs={logs} />
         </TabsContent>
       </Tabs>
-      {showDebugPanel && <DebugPanel logs={logs} />}
+      {showDebugPanel && <DebugPanel logs={logs} imageAnalysisResults={imageAnalysisResults} />}
     </div>
   );
 }
