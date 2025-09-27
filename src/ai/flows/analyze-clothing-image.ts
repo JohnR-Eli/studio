@@ -106,7 +106,6 @@ Preferred Brand List: ${brandList.join(', ')}`;
                 },
             ],
             usage: { include: true },
-            "response_format": { "type": "json_object" },
         }),
     });
 
