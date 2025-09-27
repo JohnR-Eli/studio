@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import LoadingSpinner from './LoadingSpinner';
 import { UploadCloud, X } from 'lucide-react';
+import Image from 'next/image';
 
 // Copied from page.tsx to avoid circular dependencies
 export type LogEntry = {
@@ -162,7 +163,7 @@ export default function ImageWardrobe({ onAnalysisComplete, analyzeClothingImage
             {images.map((image) => (
               <Card key={image.id} className="relative group overflow-hidden">
                 <CardContent className="p-0">
-                  <img src={image.preview} alt={image.file.name} className="object-cover w-full h-48" />
+                  <Image src={image.preview} alt={image.file.name} className="object-cover w-full h-48" width={192} height={192} />
                   <Button
                     variant="destructive"
                     size="icon"

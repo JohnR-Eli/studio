@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { analyzeClothingImage, AnalyzeClothingImageOutput } from '@/ai/flows/analyze-clothing-image';
 import { findComplementaryItems, ComplementaryItem, FindComplementaryItemsOutput } from '@/ai/flows/find-complementary-items';
-import { findSimilarItems, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
+import { findSimilarItems, FindSimilarItemsInput, FindSimilarItemsOutput } from '@/ai/flows/find-similar-items';
 import { AlertCircle, RotateCcw, History as HistoryIcon, FileText, ShoppingBag } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -387,7 +387,7 @@ export default function StyleSeerPage() {
 
       // Fetch Similar Items ("Shop the Look")
       setIsLoadingSimilarItems(true);
-      const similarItemsPayloads = categoriesToSearch.map(category => ({
+      const similarItemsPayloads: FindSimilarItemsInput[] = categoriesToSearch.map((category): FindSimilarItemsInput => ({
         isWardrobeFlow: true,
         wardrobe: [{ category: category, brand: '' }], // Simulate a wardrobe with one item
         country,
@@ -444,7 +444,7 @@ export default function StyleSeerPage() {
       setIsLoadingSimilarItems(false);
       setIsLoadingComplementaryItems(false);
     }
-  }, [country, genderDepartment, addLog, setAnalysis, setError, setIsLoading, setCurrentLoadingMessage, setIsLoadingSimilarItems, setIsLoadingComplementaryItems]);
+  }, [country, genderDepartment, addLog]);
 
   const handleWardrobeRecommendation = useCallback(async () => {
     const validWardrobeItems = wardrobe.filter(item => item.category.trim() !== '' && item.brand.trim() !== '');
