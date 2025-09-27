@@ -1,0 +1,21 @@
+Navigating to http://localhost:3000...
+Navigation successful.
+Model dropdown loaded.
+Uploading test image...
+Image upload triggered.
+Waiting for analysis to complete...
+Analysis complete.
+Debug screenshot taken.
+
+--- TEST FAILED ---
+Could not find 'Analysis Results'. Dumping page content for debugging.
+Error details: Locator expected to be visible
+Actual value: <element(s) not found>
+Call log:
+  - Expect "to_be_visible" with timeout 30000ms
+  - waiting for get_by_text("Analysis Results")
+
+Page content saved to jules-scratch/verification/failed_page.html
+
+An error occurred during verification script execution.
+Browser closed.

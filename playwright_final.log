@@ -1,0 +1,15 @@
+Navigating to http://localhost:3000...
+Navigation successful.
+Model dropdown loaded.
+Uploading test image...
+Image upload triggered.
+Waiting for analysis to complete...
+Analysis complete.
+
+An error occurred during verification: Locator expected to be visible
+Actual value: <element(s) not found>
+Call log:
+  - Expect "to_be_visible" with timeout 5000ms
+  - waiting for get_by_text("Analysis Results")
+
+Browser closed.

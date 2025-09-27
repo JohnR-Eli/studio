@@ -36,8 +36,8 @@ const AnalysisResults = dynamic(() => import('@/components/style-seer/AnalysisRe
 
 type SimilarItem = FindSimilarItemsOutput['similarItems'][0] & { imageURL?: string };
 
-type AnalysisState = Omit<AnalyzeClothingImageOutput, 'brandIsExplicit'> & 
-                     Partial<Pick<AnalyzeClothingImageOutput, 'identifiedBrand' | 'brandIsExplicit' | 'approximatedBrands' | 'alternativeBrands'>> & {
+type AnalysisState = Omit<AnalyzeClothingImageOutput, 'brandIsExplicit' | 'usage'> &
+                     Partial<Pick<AnalyzeClothingImageOutput, 'identifiedBrand' | 'brandIsExplicit' | 'approximatedBrands' | 'alternativeBrands' | 'usage'>> & {
   similarItems?: SimilarItem[];
   complementaryItems?: ComplementaryItem[];
 };
@@ -102,6 +102,8 @@ const clothingCategories = [
 export default function StyleSeerPage() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
+  const [totalTokens, setTotalTokens] = useState(0);
+  const [totalCost, setTotalCost] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSimilarItems, setIsLoadingSimilarItems] = useState(false);
   const [isLoadingComplementaryItems, setIsLoadingComplementaryItems] = useState(false);
@@ -255,6 +257,7 @@ export default function StyleSeerPage() {
       genderDepartment,
       includeLingerie: includeLingerie && genderDepartment === 'Female',
       country,
+      selectedModel,
     };
     addLog({ event: 'invoke', flow: 'analyzeClothingImage', data: inputPayload });
 
@@ -264,10 +267,16 @@ export default function StyleSeerPage() {
         genderDepartment,
         includeLingerie: includeLingerie && genderDepartment === 'Female',
         country,
+        selectedModel,
       });
       addLog({ event: 'response', flow: 'analyzeClothingImage', data: clothingAnalysisResult || "No result" });
 
       if (clothingAnalysisResult) {
+        if (clothingAnalysisResult.usage) {
+          setTotalTokens(prev => prev + clothingAnalysisResult.usage.total_tokens);
+          setTotalCost(prev => prev + clothingAnalysisResult.usage.cost);
+        }
+
         const determinedGender = clothingAnalysisResult.genderDepartment;
         
         setCurrentLoadingMessage("Image analysis complete. Finding recommendations...");
@@ -300,7 +309,7 @@ export default function StyleSeerPage() {
             setIsLoadingComplementaryItems(false);
         }
 
-        const { similarItems, complementaryItems, ...historyAnalysisData } = currentAnalysis;
+        const { similarItems, complementaryItems, usage, ...historyAnalysisData } = currentAnalysis;
         
         if (Object.values(historyAnalysisData).some(val => Array.isArray(val) ? val.length > 0 : !!val)) {
             const newEntry: HistoryEntry = {
@@ -336,7 +345,7 @@ export default function StyleSeerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory]);
+  }, [addLog, country, numSimilarItems, handleBrandSelect, genderDepartment, minPrice, maxPrice, includeLingerie, selectedBrand, selectedCategory, selectedModel]);
 
   const handleWardrobeAnalysisRecommendation = useCallback(async (results: any[]) => {
     if (results.length === 0) {
@@ -615,6 +624,8 @@ export default function StyleSeerPage() {
     setIsLoadingComplementaryItems(false);
     setCurrentLoadingMessage("Analyzing image...");
     setLogs([]);
+    setTotalTokens(0);
+    setTotalCost(0);
   }, []);
 
   const handleSelectHistoryItem = useCallback((entry: HistoryEntry) => {
@@ -888,6 +899,14 @@ export default function StyleSeerPage() {
                         )}
                     </div>
                     <footer className="text-center py-8 border-t border-border/60 mt-auto">
+                        <div className="mb-2">
+                            <p className="text-sm text-muted-foreground">
+                                <span className="font-semibold">Total Tokens:</span> {totalTokens.toLocaleString()}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                <span className="font-semibold">Cost:</span> ${totalCost.toFixed(6)}
+                            </p>
+                        </div>
                         <p className="text-sm text-muted-foreground">StyleSeer &copy; {new Date().getFullYear()} - Your AI Fashion Assistant.</p>
                     </footer>
                 </main>
